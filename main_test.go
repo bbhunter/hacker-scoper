@@ -3,11 +3,14 @@ package main
 import (
 	"fmt"
 	"net"
+	"net/http"
 	"net/url"
 	"path/filepath"
 	"reflect"
 	"runtime"
 	"testing"
+
+	"github.com/zenizh/go-capturer"
 )
 
 //========================================================================
@@ -70,6 +73,18 @@ func Test_parseOutOfScopes(t *testing.T) {
 	value = parseOutOfScopes(assetURL, outOfScopeString, nil)
 	equals(t, true, value)
 
+	// Test - in-scope URL with a URL-like out-of-scope string with an unusual scheme
+	assetURL, _ = url.Parse("https://zendesk.internal.example.com")
+	outOfScopeString = "mongodb://sometool.internal.example.com"
+	value = parseOutOfScopes(assetURL, outOfScopeString, nil)
+	equals(t, false, value)
+
+	// Test - out-of-scope URL with a URL-like out-of-scope string with an unusual scheme
+	assetURL, _ = url.Parse("https://zendesk.internal.example.com")
+	outOfScopeString = "mongodb://zendesk.internal.example.com"
+	value = parseOutOfScopes(assetURL, outOfScopeString, nil)
+	equals(t, true, value)
+
 	// Test with a bad function invocation, providing both an assetURL and an assetIP
 	// Only the assetURL should be used in this case
 	assetURL, _ = url.Parse("https://zendesk.internal.example.com")
@@ -92,9 +107,42 @@ func Example_parseOutOfScopes() {
 	// In context, this function would print a warning to stderr and return false
 	// However, for testing purposes, we will just check the stederr output
 	assetURL, _ := url.Parse("https://example.com")
-	outOfScopeString := "this-protocol-is-not-valid://example.com.org.net.us:87587349"
-	_ = parseOutOfScopes(assetURL, outOfScopeString, nil)
-	// Output: Couldn't parse out-of-scope "this-protocol-is-not-valid://example.com.org.net.us:87587349" as a URL.
+	outOfScopeString := "this is not even close to a URL"
+
+	out := capturer.CaptureStderr(func() {
+		_ = parseOutOfScopes(assetURL, outOfScopeString, nil)
+	})
+
+	fmt.Println(out)
+	// Output: [33m[WARNING]: Couldn't parse out-of-scope "[38;2;0;204;255mhttps://[33mthis is not even close to a URL" as a URL.[0m
+}
+
+func Test_updateFireBountyJSON(t *testing.T) {
+	// This test just verifies if the firebountyAPIURL is still available online, and if the JSON it returns still matches the expected structure.
+	// firebountyAPIURL is a global variable defined in the main package.
+	// First, we test if the URL is reachable with a HEAD request.
+	fmt.Println(firebountyAPIURL)
+	resp, err := http.Head("https://firebounty.com/api/v1/scope/all/url_only/")
+	// if error is not nil and the response body has more than 1 byte, we fail the test.
+	if err != nil || resp == nil || resp.ContentLength < 1 {
+		t.Fatalf("Failed to reach firebounty API URL: %v", err)
+	} else {
+		// If the HEAD request is successful, we proceed to test the JSON structure.
+		// We can use a simple HTTP GET request to fetch the JSON.
+		resp, err = http.Get(firebountyAPIURL)
+		checkForErrors(t, err)
+		defer resp.Body.Close()
+
+		// We can check if the Content-Type is application/json
+		if resp.Header.Get("Content-Type") != "application/json" {
+			t.Fatalf("Expected Content-Type application/json, got %s", resp.Header.Get("Content-Type"))
+		}
+
+		// We can also check if the response body is not empty
+		if resp.ContentLength == 0 {
+			t.Fatal("Expected non-empty response body")
+		}
+	}
 }
 
 func Test_removePortFromHost(t *testing.T) {
