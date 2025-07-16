@@ -2,4 +2,6 @@
 Verification is intended to assist the Chocolatey moderators and community
 in verifying that this package's contents are trustworthy.
  
-I, ItsIgnacioPortal, am the author of this software.
+I, ItsIgnacioPortal, am the author of this software. All chocolatey packages for Hacker-Scoper are securely built and pushed from source code using the Github Action at "https://github.com/ItsIgnacioPortal/Hacker-Scoper/blob/main/.github/workflows/gorelease.yml". Full logs for all runs can be seen at "https://github.com/ItsIgnacioPortal/Hacker-Scoper/actions/workflows/gorelease.yml".
+
+Additionally, all github releases have an accompanying "Hacker-Scoper_VERSION_checksums.txt" file which contains the checksums of all files in the release. These may be used to verify the integrity of downloaded assets, and can be accessed at "https://github.com/ItsIgnacioPortal/Hacker-Scoper/releases".
