@@ -82,7 +82,7 @@ Usage: hacker-scoper --file /path/to/targets [--company company | --custom-insco
 | Short | Long | Description |
 |-------|------|-------------|
 | -c | --company |  Specify the company name to lookup. |
-| -f | --file |  Path to your file containing URLs |
+| -f | --file |  Path to your file containing URLs/domains/IPs |
 | -ins | --inscope-file |  Path to a custom plaintext file containing scopes |
 | -oos | --outofcope-file |  Path to a custom plaintext file containing scopes exclusions |
 | -e | --explicit-level int |  How explicit we expect the scopes to be:    <br> 1 (default): Include subdomains in the scope even if there's not a wildcard in the scope    <br> 2: Include subdomains in the scope only if there's a wildcard in the scope    <br> 3: Include subdomains in the scope only if they are explicitly within the scope |
