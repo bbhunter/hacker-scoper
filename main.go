@@ -78,7 +78,6 @@ var outputDomainsOnly bool
 
 func main() {
 
-	var version string
 	var showVersion bool
 	var company string
 	// TODO: Replace the flag library with something that allows us to read and store explicit level straight into a uint8 variable. This doesn't need to be a full 32-bit int.
@@ -87,8 +86,6 @@ func main() {
 	var scopesListFilepath string
 	var outofScopesListFilepath string
 	usedstdin = false
-
-	version = "v4.0.0"
 
 	const usage = `Hacker-scoper is a Go (v1.17.2) tool designed to assist cybersecurity professionals in bug bounty programs. It identifies and excludes URLs and IP addresses that fall outside a program's scope by comparing input targets (URLs/IPs) against a locally cached [FireBounty](https://firebounty.com) database of scraped scope data. Users may also supply a custom scope list for validation.
 
@@ -189,7 +186,7 @@ func main() {
 `
 
 	if showVersion {
-		fmt.Print("hacker-scoper:" + version + "\n")
+		fmt.Print("hacker-scoper: v4.0.0\n")
 		os.Exit(0)
 	}
 
