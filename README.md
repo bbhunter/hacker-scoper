@@ -11,12 +11,12 @@
 
 ---
 
-Hacker-Scoper is a GoLang tool designed to assist cybersecurity professionals in bug bounty programs. It identifies and excludes URLs and IP addresses that fall outside a program's scope by comparing input targets (URLs/IPs) against a locally cached [FireBounty](https://firebounty.com) database of scraped scope data. Users may also supply a custom scope list for validation.
+Hacker-Scoper is a CLI tool programmed in GoLang designed to assist cybersecurity professionals in bug bounty programs. Given a mixed list of targets (URLs/IPs), it can quickly filter them to match the bug-bounty program's scope. The scope can be supplied manually, or it can also be detected automatically by just giving hacker-scoper the name of the targeted company.
 
 ## 🌟 Features
 
 - **Automatic scope detection**: Hacker-Scoper maintains an automatically-updated cached database of public program scopes. This means you don't need to manually specify the program scope unless the bug bounty program is private. You just need to supply the company name (`-c company-name-here`).
-- **Easy customization**: You can load the scope of any private program scopes into files named `.inscope` and `.noscope` for inscope assets, and out-of-scope assets respectively.
+- **Easy customization**: You can load the scope of any private program into files named `.inscope` and `.noscope` for inscope assets, and out-of-scope assets respectively.
 - **Match any asset**: Hacker-Scoper works with IPv4, IPv6, and any URL format (including non-conventional ones like `sql://` or `redis://`).
 - **Wildcard support**: Hacker-Scoper supports wildcards in any part of your scope, allowing you to use filters like `amzn*.example.com` and `dev.*.example.com`.
 - **Automation friendly**: Use the `-ch`/`--chain-mode` argument to disable the fancy text decorations and output only the in-scope assets.
