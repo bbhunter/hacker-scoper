@@ -9,5 +9,6 @@ list-lifeomic.txt
 .noscope
 inscope.txt
 noscope.txt
+benchmarking
 # Added by goreleaser init:
 dist/
