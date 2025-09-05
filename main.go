@@ -194,6 +194,7 @@ func main() {
 	}
 
 	if firebountyJSONPath == "" {
+		// TODO: Optimize this code so we don't check for the OS type on every single run. This should be handled by the compiler before-hand. This'll also make the program smaller since we won't need the "runtime" library anymore.
 		switch runtime.GOOS {
 		case "android":
 			//To maintain support between termux and other terminal emulators, we'll just save it in $HOME
