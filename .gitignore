@@ -1,22 +1,13 @@
-list.txt
-custom-scopes.txt
-ip-targets.txt
-ip-scopes.txt
-security-txt_URLs.txt
-firebounty-scope-url_only.json
-targets.txt
-hacker-scoper.exe
 .vscode
-inscope.txt
-noscope.txt
+hacker-scoper.exe
 main.exe
 *.zip
 *.nupkg
+list.txt
+list-lifeomic.txt
 .inscope
 .noscope
-todo.txt
-test.txt
-a.txt
-external.txt
+inscope.txt
+noscope.txt
 # Added by goreleaser init:
 dist/
