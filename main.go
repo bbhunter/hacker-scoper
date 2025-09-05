@@ -723,20 +723,6 @@ func cleanup() {
 	}
 }
 
-// TODO: Remove this function in a future commit. It's not our job to ensure the output is unique. Duplicates should be expected in the output if duplicates were given as the input.
-// Receives a slice of strings and returns a new slice with duplicates removed
-func removeDuplicateStr(strSlice []string) []string {
-	allKeys := make(map[string]bool)
-	list := []string{}
-	for _, item := range strSlice {
-		if _, value := allKeys[item]; !value {
-			allKeys[item] = true
-			list = append(list, item)
-		}
-	}
-	return list
-}
-
 // companyIndex is the numeric index of the company in the firebounty database, where 0 is the first company, 1 is the second company, etc
 // Returns an error if no inscopeLines could be detected.
 // Does not return an error if no noscopeLines could be detected.
