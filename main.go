@@ -638,7 +638,7 @@ func parseAllScopes(inscopeScopes *[]interface{}, noscopeScopes *[]interface{}, 
 			inscopeAssets = append(inscopeAssets, target)
 		} else if includeUnsure {
 			if !targetIsInscope && !targetIsOutOfScope {
-				unsureAssets = append(inscopeAssets, target)
+				unsureAssets = append(unsureAssets, target)
 			}
 		}
 
