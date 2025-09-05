@@ -391,7 +391,9 @@ func main() {
 			fmt.Println(string(colorRed) + "\t - Doing a manual search at https://firebounty.com")
 			fmt.Println(string(colorRed) + "\t - Loading the scopes manually into '.inscope' and '.noscope' files.")
 			fmt.Println(string(colorRed) + "\t - Loading the scopes manually into custom files, specified with the --inscope-file and --outofscope-file arguments.")
-			// TODO: Early exit here
+			cleanup()
+			// Exit code 2 = command line syntax error
+			os.Exit(2)
 		} else if len(matchingCompanyList) > 1 {
 
 			if chainMode {
