@@ -28,6 +28,11 @@ var firebountyJSONPath string
 
 var ErrInvalidFormat = errors.New("invalid format: not IP, CIDR, or URL")
 
+type URLWithIPAddressHost struct {
+	RawURL string
+	IPhost net.IP
+}
+
 // https://tutorialedge.net/golang/parsing-json-with-golang/
 type Scope struct {
 	Scope      string //either a domain, or a wildcard domain
@@ -877,8 +882,9 @@ func readFileLines(filepath string) ([]string, error) {
 // - *regexp.Regexp (Regex)
 //
 // If isScope is false, ParseLine attempts to parse a string into either:
-// - *net.IP	(single IP address)
-// - *url.URL	(valid URL)
+// - *net.IP				(single IP address)
+// - *url.URL				(valid URL)
+// - *URLWithIPAddressHost	(URL that has an IP host)
 //
 // This function returns the error ErrInvalidFormat if the string didn't match any of the listed formats.
 func parseLine(line string, isScope bool) (interface{}, error) {
@@ -919,17 +925,30 @@ func parseLine(line string, isScope bool) (interface{}, error) {
 
 	// Try URL (with basic validation)
 	parsedURL, err := url.Parse(line)
-	if err == nil && parsedURL.Scheme != "" && parsedURL.Host != "" {
-		return parsedURL, nil
-	} else {
+	parseAsURLFailedQuietly := (err == nil && parsedURL.Scheme == "" && parsedURL.Host == "")
+
+	if parseAsURLFailedQuietly {
 		// Retry parsing but with a 'https://' prefix
-		parsedURL, err := url.Parse("https://" + line)
-		if err == nil && parsedURL.Scheme != "" && parsedURL.Host != "" {
-			return parsedURL, nil
-		} else {
+		parsedURL, err = url.Parse("https://" + line)
+		parseAsURLFailedQuietly = (err == nil && parsedURL.Scheme == "" && parsedURL.Host == "")
+		if parseAsURLFailedQuietly {
 			return nil, ErrInvalidFormat
 		}
 	}
+
+	if !isScope {
+		// scopes will never be URLs with IP hostnames. It doesn't make sense to check for IP hostnames in URLs for scopes
+		// Try plain IP
+		if ip := net.ParseIP(removePortFromHost(parsedURL)); ip != nil {
+			myURLWithIPHostname := URLWithIPAddressHost{RawURL: line, IPhost: ip}
+			return &myURLWithIPHostname, nil
+		} else {
+			return parsedURL, nil
+		}
+	} else {
+		return parsedURL, nil
+	}
+
 }
 
 // ParseAllLines processes each line individually, returning:
@@ -991,6 +1010,8 @@ func interfaceToStrings(interfaces *[]interface{}, isScope bool) (strings []stri
 				// If it's an IP Address
 				//strings = append(strings, (*interfaces)[i].(*net.IP).String())
 				strings = append(strings, assertedInterface.String())
+			case *URLWithIPAddressHost:
+				strings = append(strings, assertedInterface.RawURL)
 			case *url.URL:
 				// If it's a URL...
 				//strings = append(strings, (*interfaces)[i].(*url.URL).String())
@@ -999,6 +1020,7 @@ func interfaceToStrings(interfaces *[]interface{}, isScope bool) (strings []stri
 				} else {
 					strings = append(strings, assertedInterface.String())
 				}
+
 			}
 		}
 	}
@@ -1012,24 +1034,9 @@ func isInscope(inscopeScopes *[]interface{}, target *interface{}, explicitLevel 
 	switch assertedTarget := (*target).(type) {
 	// If the target is an IP Address...
 	case *net.IP:
-		// For each scope in inscopeScopes...
-		for i := 0; i < len(*inscopeScopes); i++ {
-			// We're only interested in comparing IP targets against CIDR networks and IP addresses.
-			switch assertedScope := (*inscopeScopes)[i].(type) {
-			// If the i scope is a CIDR network...
-			case *net.IPNet:
-				result = assertedScope.Contains(*assertedTarget)
-
-			// If the i scope is an IP Address...
-			case *net.IP:
-				result = assertedScope.Equal(*assertedTarget)
-
-				// TODO: Add a regex case for comparing against target IP addresses
-			}
-			if result {
-				return result
-			}
-		}
+		return isInscopeIP(assertedTarget, inscopeScopes)
+	case *URLWithIPAddressHost:
+		return isInscopeIP(&assertedTarget.IPhost, inscopeScopes)
 
 	// If the target is a URL...
 	case *url.URL:
@@ -1065,5 +1072,27 @@ func isInscope(inscopeScopes *[]interface{}, target *interface{}, explicitLevel 
 		}
 	}
 
+	return false
+}
+
+func isInscopeIP(targetIP *net.IP, inscopeScopes *[]interface{}) (result bool) {
+	// For each scope in inscopeScopes...
+	for i := 0; i < len(*inscopeScopes); i++ {
+		// We're only interested in comparing IP targets against CIDR networks and IP addresses.
+		switch assertedScope := (*inscopeScopes)[i].(type) {
+		// If the i scope is a CIDR network...
+		case *net.IPNet:
+			result = assertedScope.Contains(*targetIP)
+
+		// If the i scope is an IP Address...
+		case *net.IP:
+			result = assertedScope.Equal(*targetIP)
+
+			// TODO: Add a regex case for comparing against target IP addresses
+		}
+		if result {
+			return result
+		}
+	}
 	return false
 }
