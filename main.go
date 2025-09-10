@@ -925,13 +925,14 @@ func parseLine(line string, isScope bool) (interface{}, error) {
 
 	// Try URL (with basic validation)
 	parsedURL, err := url.Parse(line)
-	parseAsURLFailedQuietly := (err == nil && parsedURL.Scheme == "" && parsedURL.Host == "")
+	// If parsedURL.Opaque has content, then this is a data URI. Data URI's are not supported by hacker-scoper.
+	parseAsURLFailed := (err != nil || parsedURL.Host == "" || parsedURL.Opaque != "")
 
-	if parseAsURLFailedQuietly {
+	if parseAsURLFailed {
 		// Retry parsing but with a 'https://' prefix
 		parsedURL, err = url.Parse("https://" + line)
-		parseAsURLFailedQuietly = (err == nil && parsedURL.Scheme == "" && parsedURL.Host == "")
-		if parseAsURLFailedQuietly {
+		parseAsURLFailed = (err != nil || parsedURL.Host == "" || parsedURL.Opaque != "")
+		if parseAsURLFailed {
 			return nil, ErrInvalidFormat
 		}
 	}
@@ -946,7 +947,15 @@ func parseLine(line string, isScope bool) (interface{}, error) {
 			return parsedURL, nil
 		}
 	} else {
-		return parsedURL, nil
+		if parsedURL.Path == "" || parsedURL.Path == "/" {
+			return parsedURL, nil
+		} else {
+			if !chainMode {
+				warning("The text \"" + line + "\" was given as a scope, but it contains the path \"" + parsedURL.Path + "\". In order to properly match paths in your scope you have to use wildcards. This scope has been ignored.")
+			}
+			return nil, ErrInvalidFormat
+		}
+
 	}
 
 }
