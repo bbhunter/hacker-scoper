@@ -62,7 +62,7 @@ Download a pre-built binary from [the releases page](https://github.com/ItsIgnac
 - A: It works by looking for company-name matches in a cached copy of the [firebounty](https://firebounty.com/) database. The company name that you specify will be lowercase'd, and then the tool will check if any company name in the database contains that string. Once it finds a name match, it will filter your supplied targets according to the scopes that firebounty detected for that company. You can test how this would perform by just searching some name in [the firebounty website](https://firebounty.com/).
 
 ## 🤔 Usage
-Usage: hacker-scoper --file /path/to/targets [--company company | --custom-inscopes-file /path/to/inscopes [--custom-outofcopes-file /path/to/outofscopes]] [--explicit-level INT] [--chain-mode] [--database /path/to/firebounty.json] [--include-unsure] [--output /path/to/outputfile] [--hostnames-only]
+Usage: hacker-scoper --file /path/to/targets [--company company | --inscope-file /path/to/inscopes [--outofscope-file /path/to/outofscopes]] [--explicit-level INT] [--chain-mode] [--database /path/to/firebounty.json] [--include-unsure] [--output /path/to/outputfile] [--hostnames-only]
 
 ### Usage examples:
 - Example: Cat a file, and lookup scopes on firebounty    
@@ -85,7 +85,7 @@ Usage: hacker-scoper --file /path/to/targets [--company company | --custom-insco
 | -c | --company |  Specify the company name to lookup. |
 | -f | --file |  Path to your file containing URLs/domains/IPs |
 | -ins | --inscope-file |  Path to a custom plaintext file containing scopes |
-| -oos | --outofcope-file |  Path to a custom plaintext file containing scopes exclusions |
+| -oos | --outofscope-file |  Path to a custom plaintext file containing scopes exclusions |
 | -e | --explicit-level int |  How explicit we expect the scopes to be:    <br> 1 (default): Include subdomains in the scope even if there's not a wildcard in the scope    <br> 2: Include subdomains in the scope only if there's a wildcard in the scope    <br> 3: Include subdomains in the scope only if they are explicitly within the scope |
 | -ch | --chain-mode |  In "chain-mode" we only output the important information. No decorations.. Default: false |
 | --database |  | Custom path to the cached firebounty database |

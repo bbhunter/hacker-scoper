@@ -94,7 +94,7 @@ func main() {
 
 	const usage = `Hacker-scoper is a Go (v1.17.2) tool designed to assist cybersecurity professionals in bug bounty programs. It identifies and excludes URLs and IP addresses that fall outside a program's scope by comparing input targets (URLs/IPs) against a locally cached [FireBounty](https://firebounty.com) database of scraped scope data. Users may also supply a custom scope list for validation.
 
-` + colorBlue + `Usage:` + colorReset + ` hacker-scoper --file /path/to/targets [--company company | --custom-inscopes-file /path/to/inscopes [--custom-outofcopes-file /path/to/outofscopes]] [--explicit-level INT] [--chain-mode] [--database /path/to/firebounty.json] [--include-unsure] [--output /path/to/outputfile] [--hostnames-only]
+` + colorBlue + `Usage:` + colorReset + ` hacker-scoper --file /path/to/targets [--company company | --inscopes-file /path/to/inscopes [--outofscopes-file /path/to/outofscopes]] [--explicit-level INT] [--chain-mode] [--database /path/to/firebounty.json] [--include-unsure] [--output /path/to/outputfile] [--hostnames-only]
 
 ` + colorBlue + `Usage examples:` + colorReset + `
   Example: Cat a file, and lookup scopes on firebounty
@@ -119,10 +119,10 @@ func main() {
   -f, --file string
       Path to your file containing URLs
 
-  -ins, --inscope-file string
+  -ins, --inscope, --in-scope, --in-scope-file, --inscope-file string
       Path to a custom plaintext file containing scopes
 
-  -oos, --outofcope-file string
+  -oos, --outofscope, --out-of-scope, --out-of-scope-file, --outofscope-file string
       Path to a custom plaintext file containing scopes exclusions
 
   -e, --explicit-level int
@@ -161,9 +161,15 @@ func main() {
 	flag.StringVar(&targetsListFilepath, "f", "", "Path to your file containing URLs")
 	flag.StringVar(&targetsListFilepath, "file", "", "Path to your file containing URLs")
 	flag.StringVar(&scopesListFilepath, "ins", "", "Path to a custom plaintext file containing scopes")
+	flag.StringVar(&scopesListFilepath, "inscope", "", "Path to a custom plaintext file containing scopes")
+	flag.StringVar(&scopesListFilepath, "in-scope", "", "Path to a custom plaintext file containing scopes")
+	flag.StringVar(&scopesListFilepath, "in-scope-file", "", "Path to a custom plaintext file containing scopes")
 	flag.StringVar(&scopesListFilepath, "inscope-file", "", "Path to a custom plaintext file containing scopes")
 	flag.StringVar(&outofScopesListFilepath, "oos", "", "Path to a custom plaintext file containing scopes exclusions")
-	flag.StringVar(&outofScopesListFilepath, "outofcope-file", "", "Path to a custom plaintext file containing scopes exclusions")
+	flag.StringVar(&outofScopesListFilepath, "outofscope", "", "Path to a custom plaintext file containing scopes exclusions")
+	flag.StringVar(&outofScopesListFilepath, "out-of-scope", "", "Path to a custom plaintext file containing scopes exclusions")
+	flag.StringVar(&outofScopesListFilepath, "outofscope-file", "", "Path to a custom plaintext file containing scopes exclusions")
+	flag.StringVar(&outofScopesListFilepath, "out-of-scope-file", "", "Path to a custom plaintext file containing scopes exclusions")
 	flag.IntVar(&explicitLevel, "e", 1, "Level of explicity expected. ([1]/2/3)")
 	flag.IntVar(&explicitLevel, "explicit-level", 1, "Level of explicity expected. ([1]/2/3)")
 	flag.BoolVar(&chainMode, "ch", false, "In \"chain-mode\" we only output the important information. No decorations.")
