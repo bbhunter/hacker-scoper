@@ -929,10 +929,15 @@ func parseLine(line string, isScope bool) (interface{}, error) {
 	parseAsURLFailed := (err != nil || parsedURL.Host == "" || parsedURL.Opaque != "")
 
 	if parseAsURLFailed {
-		// Retry parsing but with a 'https://' prefix
-		parsedURL, err = url.Parse("https://" + line)
-		parseAsURLFailed = (err != nil || parsedURL.Host == "" || parsedURL.Opaque != "")
-		if parseAsURLFailed {
+		// If the line doesn't already start with an "https://" prefix...
+		if !strings.HasPrefix(line, "https://") {
+			// Retry parsing but with a 'https://' prefix
+			parsedURL, err = url.Parse("https://" + line)
+			parseAsURLFailed = (err != nil || parsedURL.Host == "" || parsedURL.Opaque != "")
+			if parseAsURLFailed {
+				return nil, ErrInvalidFormat
+			}
+		} else {
 			return nil, ErrInvalidFormat
 		}
 	}
