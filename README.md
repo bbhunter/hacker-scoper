@@ -13,6 +13,8 @@
 
 Hacker-Scoper is a CLI tool programmed in GoLang designed to assist cybersecurity professionals in bug bounty programs. Given a mixed list of targets (URLs/IPs), it can quickly filter them to match the bug-bounty program's scope. The scope can be supplied manually, or it can also be detected automatically by just giving hacker-scoper the name of the targeted company.
 
+This project is developed and maintained by [ItsIgnacioPortal](https://github.com/ItsIgnacioPortal).
+
 ## 🌟 Features
 
 - **Automatic scope detection**: Hacker-Scoper maintains an automatically-updated cached database of public program scopes. This means you don't need to manually specify the program scope unless the bug bounty program is private. You just need to supply the company name (`-c company-name-here`).
