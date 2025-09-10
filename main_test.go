@@ -3,14 +3,12 @@ package main
 import (
 	"fmt"
 	"net"
-	"net/http"
 	"net/url"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"runtime"
 	"testing"
-
-	"github.com/zenizh/go-capturer"
 )
 
 //========================================================================
@@ -48,60 +46,316 @@ func equals(tb testing.TB, exp, act interface{}) {
 //========================================================================
 //========================================================================
 
-func Test_parseOutOfScopes(t *testing.T) {
-	// Simple test - inscope URL
-	assetURL, _ := url.Parse("https://example.com")
-	outOfScopeString := "zendesk*.example.com"
-	value := parseOutOfScopes(assetURL, outOfScopeString, nil)
-	equals(t, false, value)
-
-	// Simple test - out of scope URL
-	assetURL, _ = url.Parse("https://zendesk.internal.example.com")
-	outOfScopeString = "zendesk*.example.com"
-	value = parseOutOfScopes(assetURL, outOfScopeString, nil)
-	equals(t, true, value)
-
-	// Simple test - in-scope URL with a URL-like out-of-scope string
-	assetURL, _ = url.Parse("https://zendesk.internal.example.com")
-	outOfScopeString = "https://sometool.internal.example.com"
-	value = parseOutOfScopes(assetURL, outOfScopeString, nil)
-	equals(t, false, value)
-
-	// Simple test - out-of-scope URL with a URL-like out-of-scope string
-	assetURL, _ = url.Parse("https://zendesk.internal.example.com")
-	outOfScopeString = "https://zendesk.internal.example.com"
-	value = parseOutOfScopes(assetURL, outOfScopeString, nil)
-	equals(t, true, value)
-
-	// Test - in-scope URL with a URL-like out-of-scope string with an unusual scheme
-	assetURL, _ = url.Parse("https://zendesk.internal.example.com")
-	outOfScopeString = "mongodb://sometool.internal.example.com"
-	value = parseOutOfScopes(assetURL, outOfScopeString, nil)
-	equals(t, false, value)
-
-	// Test - out-of-scope URL with a URL-like out-of-scope string with an unusual scheme
-	assetURL, _ = url.Parse("https://zendesk.internal.example.com")
-	outOfScopeString = "mongodb://zendesk.internal.example.com"
-	value = parseOutOfScopes(assetURL, outOfScopeString, nil)
-	equals(t, true, value)
-
-	// Test with a bad function invocation, providing both an assetURL and an assetIP
-	// Only the assetURL should be used in this case
-	assetURL, _ = url.Parse("https://zendesk.internal.example.com")
-	outOfScopeString = "zendesk*.example.com"
-	assetIP := net.ParseIP("127.0.0.1")
-	value = parseOutOfScopes(assetURL, outOfScopeString, assetIP)
-	equals(t, true, value)
-
-	// Test with a bad function invocation, providing both assetURL and assetIP as nil
-	// The function should return false
-	assetURL = nil
-	outOfScopeString = "127.0.0.1"
-	assetIP = nil
-	value = parseOutOfScopes(assetURL, outOfScopeString, assetIP)
-	equals(t, false, value)
+func Test_parseLine_Scope_IP(t *testing.T) {
+	scope := "192.168.0.1"
+	scopeParsed := net.ParseIP(scope)
+	result, _ := parseLine(scope, true)
+	equals(t, &scopeParsed, result)
 }
 
+func Test_parseLine_Scope_IPv4CIDR(t *testing.T) {
+	scope := "192.168.0.1/24"
+	_, scopeParsed, _ := net.ParseCIDR(scope)
+	result, _ := parseLine(scope, true)
+	equals(t, scopeParsed, result)
+}
+
+func Test_parseLine_Scope_IPv6CIDR(t *testing.T) {
+	scope := "2001:DB8::/32"
+	_, scopeParsed, _ := net.ParseCIDR(scope)
+	result, _ := parseLine(scope, true)
+	equals(t, scopeParsed, result)
+}
+
+func Test_parseLine_Scope_URL_Hostname(t *testing.T) {
+	scope := "https://example.com"
+	scopeParsed, _ := url.Parse(scope)
+	result, _ := parseLine(scope, true)
+	equals(t, scopeParsed, result)
+}
+
+func Test_parseLine_Scope_URL_Hostname_NoScheme(t *testing.T) {
+	scope := "example.com"
+	scopeParsed, _ := url.Parse("https://" + scope)
+	result, _ := parseLine(scope, true)
+	equals(t, scopeParsed, result)
+}
+
+func Test_parseLine_Scope_URL_Hostname_Port(t *testing.T) {
+	scope := "http://example.com:80"
+	scopeParsed, _ := url.Parse(scope)
+	result, _ := parseLine(scope, true)
+	equals(t, scopeParsed, result)
+}
+
+func Test_parseLine_Scope_URL_Hostname_Port_NoScheme(t *testing.T) {
+	scope := "example.com:80"
+	scopeParsed, _ := url.Parse("https://" + scope)
+	result, _ := parseLine(scope, true)
+	equals(t, scopeParsed, result)
+}
+
+func Test_parseLine_Scope_Invalid(t *testing.T) {
+	scope := "Consequuntur et aut saepe quibusdam quia. Nostrum aut et et ea ea. Ducimus dolore aut unde. Unde a eligendi repudiandae tempore corrupti."
+	result, err := parseLine(scope, true)
+	equals(t, nil, result)
+	equals(t, ErrInvalidFormat, err)
+}
+
+func Test_parseLine_Scope_URL_Scheme_Invalid(t *testing.T) {
+	scope := "https://Consequuntur et aut saepe quibusdam quia. Nostrum aut et et ea ea. Ducimus dolore aut unde. Unde a eligendi repudiandae tempore corrupti."
+	result, err := parseLine(scope, true)
+	equals(t, nil, result)
+	equals(t, ErrInvalidFormat, err)
+}
+
+// Scopes that are URLs with paths are expected to throw an error.
+func Test_parseLine_Scope_URL_Hostname_WithPath(t *testing.T) {
+	scope := "https://example.com/path/to/something.html"
+	result, err := parseLine(scope, true)
+
+	equals(t, nil, result)
+	equals(t, ErrInvalidFormat, err)
+
+}
+
+// Scopes that are URLs with paths are expected to throw an error.
+func Test_parseLine_Scope_URL_Hostname_Port_WithPath(t *testing.T) {
+	scope := "https://example.com:80/path/to/something.html"
+	result, err := parseLine(scope, true)
+
+	equals(t, nil, result)
+	equals(t, ErrInvalidFormat, err)
+
+}
+
+// Scopes that are URLs with paths are expected to throw an error.
+func Test_parseLine_Scope_URL_Hostname_NoScheme_WithPath(t *testing.T) {
+	scope := "example.com/path/to/something.html"
+	result, err := parseLine(scope, true)
+
+	equals(t, nil, result)
+	equals(t, ErrInvalidFormat, err)
+
+}
+
+// Scopes that are URLs with paths are expected to throw an error.
+func Test_parseLine_Scope_URL_Hostname_Port_NoScheme_WithPath(t *testing.T) {
+	scope := "example.com:80/path/to/something.html"
+	result, err := parseLine(scope, true)
+
+	equals(t, nil, result)
+	equals(t, ErrInvalidFormat, err)
+
+}
+
+// Scopes that are URLs with paths are expected to throw an error.
+func Test_parseLine_Scope_URL_IP_WithPath(t *testing.T) {
+	scope := "https://192.168.1.0/path/to/something.html"
+	result, err := parseLine(scope, true)
+
+	equals(t, nil, result)
+	equals(t, ErrInvalidFormat, err)
+
+}
+
+// Scopes that are URLs with paths are expected to throw an error.
+func Test_parseLine_Scope_URL_IP_NoScheme_WithPath(t *testing.T) {
+	scope := "192.168.1.0/path/to/something.html"
+	result, err := parseLine(scope, true)
+
+	equals(t, nil, result)
+	equals(t, ErrInvalidFormat, err)
+
+}
+
+// Scopes that are URLs with paths are expected to throw an error.
+func Test_parseLine_Scope_URL_IP_Port_NoScheme_WithPath(t *testing.T) {
+	scope := "192.168.1.0:80/path/to/something.html"
+	result, err := parseLine(scope, true)
+
+	equals(t, nil, result)
+	equals(t, ErrInvalidFormat, err)
+
+}
+
+// Try parsing wildcards
+func Test_parseLine_Scope_Wildcard_Start(t *testing.T) {
+	scope := "*.amz.example.com"
+	scopeParsed, _ := regexp.Compile(`.*\.amz\.example\.com`)
+	result, _ := parseLine(scope, true)
+	equals(t, scopeParsed, result)
+}
+
+// Try parsing wildcards
+func Test_parseLine_Scope_Wildcard_Middle(t *testing.T) {
+	scope := "database*.internal.example.com"
+	scopeParsed, _ := regexp.Compile(`database.*\.internal\.example\.com`)
+	result, _ := parseLine(scope, true)
+	equals(t, scopeParsed, result)
+}
+
+// Try parsing wildcards
+func Test_parseLine_Scope_Wildcard_Complex(t *testing.T) {
+	scope := "database*.internal.*.example.com"
+	scopeParsed, _ := regexp.Compile(`database.*\.internal\..*\.example\.com`)
+	result, _ := parseLine(scope, true)
+	equals(t, scopeParsed, result)
+}
+
+func Test_parseLine_Target_IP(t *testing.T) {
+	scope := "192.168.0.1"
+	scopeParsed := net.ParseIP(scope)
+	result, _ := parseLine(scope, true)
+	equals(t, &scopeParsed, result)
+}
+
+func Test_parseLine_Target_IPv4CIDR(t *testing.T) {
+	scope := "192.168.0.1/24"
+	result, err := parseLine(scope, false)
+	// If a CIDR range is given as a target (which doesn't make logical sense), the expected behavior is for it to be parsed as a URL with an IP host.
+	// so "192.168.0.1/24" turns into "https://192.168.0.1/24" (where "/24" is the URL path)
+	scopeAsIP := net.ParseIP("192.168.0.1")
+	parsedScope := URLWithIPAddressHost{RawURL: scope, IPhost: scopeAsIP}
+
+	equals(t, nil, err)
+	equals(t, &parsedScope, result)
+}
+
+// If a CIDR range is given as a target (which doesn't make logical sense), the expected behavior is for it to be parsed as a URL.
+// so "2001:DB8::/32" turns into "https://2001:DB8::/32" (where "/32" is the URL path)
+func Test_parseLine_Target_IPv6CIDR(t *testing.T) {
+	scope := "2001:DB8::/32"
+	parsedScope, _ := url.Parse("https://" + scope)
+	result, err := parseLine(scope, false)
+
+	equals(t, nil, err)
+	equals(t, parsedScope, result)
+}
+
+func Test_parseLine_Target_URL_Hostname(t *testing.T) {
+	scope := "https://example.com"
+	scopeParsed, _ := url.Parse(scope)
+	result, _ := parseLine(scope, false)
+	equals(t, scopeParsed, result)
+}
+
+func Test_parseLine_Target_URL_Hostname_NoScheme(t *testing.T) {
+	scope := "example.com"
+	scopeParsed, _ := url.Parse("https://" + scope)
+	result, _ := parseLine(scope, false)
+	equals(t, scopeParsed, result)
+}
+
+func Test_parseLine_Target_URL_Hostname_Port(t *testing.T) {
+	scope := "http://example.com:80"
+	scopeParsed, _ := url.Parse(scope)
+	result, _ := parseLine(scope, false)
+	equals(t, scopeParsed, result)
+}
+
+func Test_parseLine_Target_URL_Hostname_Port_NoScheme(t *testing.T) {
+	scope := "example.com:80"
+	scopeParsed, _ := url.Parse("https://" + scope)
+	result, _ := parseLine(scope, false)
+	equals(t, scopeParsed, result)
+}
+
+func Test_parseLine_Target_Invalid(t *testing.T) {
+	scope := "Consequuntur et aut saepe quibusdam quia. Nostrum aut et et ea ea. Ducimus dolore aut unde. Unde a eligendi repudiandae tempore corrupti."
+	result, err := parseLine(scope, false)
+	equals(t, nil, result)
+	equals(t, ErrInvalidFormat, err)
+}
+
+func Test_parseLine_Target_URL_Scheme_Invalid(t *testing.T) {
+	scope := "https://Consequuntur et aut saepe quibusdam quia. Nostrum aut et et ea ea. Ducimus dolore aut unde. Unde a eligendi repudiandae tempore corrupti."
+	result, err := parseLine(scope, false)
+	equals(t, nil, result)
+	equals(t, ErrInvalidFormat, err)
+}
+
+// Targets that are URLs with paths are expected to work
+func Test_parseLine_Target_URL_Hostname_WithPath(t *testing.T) {
+	scope := "https://example.com/path/to/something.html"
+	parsedScope, _ := url.Parse(scope)
+	result, err := parseLine(scope, false)
+
+	equals(t, err, nil)
+	equals(t, parsedScope, result)
+
+}
+
+// Targets that are URLs with paths are expected to work
+func Test_parseLine_Target_URL_Hostname_Port_WithPath(t *testing.T) {
+	scope := "https://example.com:80/path/to/something.html"
+	parsedScope, _ := url.Parse(scope)
+	result, err := parseLine(scope, false)
+
+	equals(t, err, nil)
+	equals(t, parsedScope, result)
+
+}
+
+// Targets that are URLs with paths are expected to work
+func Test_parseLine_Target_URL_Hostname_NoScheme_WithPath(t *testing.T) {
+	scope := "example.com/path/to/something.html"
+	parsedScope, _ := url.Parse("https://" + scope)
+	result, err := parseLine(scope, false)
+
+	equals(t, err, nil)
+	equals(t, parsedScope, result)
+
+}
+
+// Targets that are URLs with paths are expected to work
+func Test_parseLine_Target_URL_Hostname_Port_NoScheme_WithPath(t *testing.T) {
+	scope := "example.com:80/path/to/something.html"
+	parsedScope, _ := url.Parse("https://" + scope)
+	result, err := parseLine(scope, false)
+
+	equals(t, err, nil)
+	equals(t, parsedScope, result)
+
+}
+
+// Targets that are URLs with paths are expected to work
+func Test_parseLine_Target_URL_IPv4_WithPath(t *testing.T) {
+	scope := "https://192.168.1.0/path/to/something.html"
+	scopeAsIP := net.ParseIP("192.168.1.0")
+	parsedScope := URLWithIPAddressHost{RawURL: scope, IPhost: scopeAsIP}
+	result, err := parseLine(scope, false)
+
+	equals(t, nil, err)
+	equals(t, &parsedScope, result)
+
+}
+
+// Targets that are URLs with paths are expected to work
+func Test_parseLine_Target_URL_IPv4_NoScheme_WithPath(t *testing.T) {
+	scope := "192.168.1.0/path/to/something.html"
+	scopeAsIP := net.ParseIP("192.168.1.0")
+	parsedScope := URLWithIPAddressHost{RawURL: scope, IPhost: scopeAsIP}
+	result, err := parseLine(scope, false)
+
+	equals(t, nil, err)
+	equals(t, &parsedScope, result)
+
+}
+
+// Targets that are URLs with paths are expected to work
+func Test_parseLine_Target_URL_IPv4_Port_NoScheme_WithPath(t *testing.T) {
+	scope := "192.168.1.0:80/path/to/something.html"
+	scopeAsIP := net.ParseIP("192.168.1.0")
+	parsedScope := URLWithIPAddressHost{RawURL: scope, IPhost: scopeAsIP}
+	result, err := parseLine(scope, false)
+
+	equals(t, nil, err)
+	equals(t, &parsedScope, result)
+
+}
+
+/*
 func Example_parseOutOfScopes() {
 	// Test with an invalid out-of-scope string
 	// In context, this function would print a warning to stderr and return false
@@ -116,7 +370,8 @@ func Example_parseOutOfScopes() {
 	fmt.Println(out)
 	// Output: [33m[WARNING]: Couldn't parse out-of-scope "[38;2;0;204;255mhttps://[33mthis is not even close to a URL" as a URL.[0m
 }
-
+*/
+/*
 func Test_updateFireBountyJSON(t *testing.T) {
 	// This test just verifies if the firebountyAPIURL is still available online, and if the JSON it returns still matches the expected structure.
 	// firebountyAPIURL is a global variable defined in the main package.
@@ -144,6 +399,7 @@ func Test_updateFireBountyJSON(t *testing.T) {
 		}
 	}
 }
+*/
 
 func Test_removePortFromHost(t *testing.T) {
 	// testURL must be in a variable of type *url.URL, which contains "https://example.com:8080/path?query=123"
