@@ -19,6 +19,7 @@ Hacker-Scoper is a CLI tool programmed in GoLang designed to assist cybersecurit
 - **Easy customization**: You can load the scope of any private program into files named `.inscope` for inscope assets, and `.noscope` for out-of-scope assets.
 - **Match any asset**: Hacker-Scoper works with IPv4, IPv6, and any URL format (including URLs with non-conventional schemes, like `sql://` or `redis://`).
 - **Wildcard support**: Hacker-Scoper supports wildcards in any part of your scope, allowing you to use filters like `amzn*.example.com` and `dev.*.example.com`.
+- **CIDR Range support**: You can use CIDR ranges in your scopes to filter IP addresses, for example: `10.49.20.0/24` for IPv4 and `2001:DB8::/32` for IPv6.
 - **Automation friendly**: Use the `-ch`/`--chain-mode` argument to disable the fancy text decorations and output only the in-scope assets. Hacker-scoper also supports input from stdin.
 - **Compatible**: Hacker-Scoper is compatible with Windows, Linux, MacOS and Android in all architectures.
 - **Flexible**: For any companies with vaguely defined scopes, you can enable or disable scope wildcard parsing using the command-line argument `-e`/`--explicit-level`.
@@ -104,6 +105,11 @@ ads.example.com
 192.168.1.10
 192.168.2.10
 192.168.2.8
+2001:db8:0000:0000:0000:0000:0000:0001
+2001:db8:0000:0000:0000:0000:0000:0002
+2001:db8::3
+2001:db9:0000:0000:0000:0000:0000:0004
+2001:db9::5
 ```
 
 Custom .inscope file example:
@@ -111,9 +117,11 @@ Custom .inscope file example:
 *.example.com
 *.sub.domain.example.com
 amzn*.domain.example.com
-192.168.1.10
+192.168.2.10
+192.168.1.0/24
 FE80:0000:0000:0000:0202:B3FF:FE1E:8329
 FE80::0202:B3FF:FE1E:8329
+2001:DB8::/32
 ```
 
 Custom .noscope file example:
@@ -122,7 +130,7 @@ community.example.com
 thirdparty.example.com
 *.thirdparty.example.com
 dev.*.example.com
-192.168.2.254
+192.168.2.8
 FE80::0202:B3FF:FE1E:8330
 ```
 
