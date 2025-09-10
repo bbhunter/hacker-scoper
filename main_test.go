@@ -15,15 +15,6 @@ import (
 //                            HELPER FUNCTIONS
 //========================================================================
 
-// assert fails the test if the condition is false.
-func assert(tb testing.TB, condition bool, msg string, v ...interface{}) {
-	if !condition {
-		_, file, line, _ := runtime.Caller(1)
-		fmt.Printf("\033[31m%s:%d: "+msg+"\033[39m\n\n", append([]interface{}{filepath.Base(file), line}, v...)...)
-		tb.FailNow()
-	}
-}
-
 // ok fails the test if an err is not nil.
 func checkForErrors(tb testing.TB, err error) {
 	if err != nil {
@@ -218,7 +209,7 @@ func Test_parseLine_Target_IPv4CIDR(t *testing.T) {
 	scopeAsIP := net.ParseIP("192.168.0.1")
 	parsedScope := URLWithIPAddressHost{RawURL: scope, IPhost: scopeAsIP}
 
-	equals(t, nil, err)
+	checkForErrors(t, err)
 	equals(t, &parsedScope, result)
 }
 
@@ -229,7 +220,7 @@ func Test_parseLine_Target_IPv6CIDR(t *testing.T) {
 	parsedScope, _ := url.Parse("https://" + scope)
 	result, err := parseLine(scope, false)
 
-	equals(t, nil, err)
+	checkForErrors(t, err)
 	equals(t, parsedScope, result)
 }
 
@@ -326,7 +317,7 @@ func Test_parseLine_Target_URL_IPv4_WithPath(t *testing.T) {
 	parsedScope := URLWithIPAddressHost{RawURL: scope, IPhost: scopeAsIP}
 	result, err := parseLine(scope, false)
 
-	equals(t, nil, err)
+	checkForErrors(t, err)
 	equals(t, &parsedScope, result)
 
 }
@@ -338,7 +329,7 @@ func Test_parseLine_Target_URL_IPv4_NoScheme_WithPath(t *testing.T) {
 	parsedScope := URLWithIPAddressHost{RawURL: scope, IPhost: scopeAsIP}
 	result, err := parseLine(scope, false)
 
-	equals(t, nil, err)
+	checkForErrors(t, err)
 	equals(t, &parsedScope, result)
 
 }
@@ -350,7 +341,7 @@ func Test_parseLine_Target_URL_IPv4_Port_NoScheme_WithPath(t *testing.T) {
 	parsedScope := URLWithIPAddressHost{RawURL: scope, IPhost: scopeAsIP}
 	result, err := parseLine(scope, false)
 
-	equals(t, nil, err)
+	checkForErrors(t, err)
 	equals(t, &parsedScope, result)
 
 }
