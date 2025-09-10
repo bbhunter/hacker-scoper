@@ -57,6 +57,7 @@ jobs:
           args: pack choco\hacker-scoper\hacker-scoper.nuspec
       - 
         name: Upload to chocolatey
+        shell: cmd
         run: |
           FOR /F "tokens=* USEBACKQ" %%F IN (`dir /B *.nupkg`) DO (SET filename=%%F)
           ECHO %filename%
