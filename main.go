@@ -13,7 +13,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -217,39 +216,22 @@ func main() {
 	}
 
 	if firebountyJSONPath == "" {
-		// TODO: Optimize this code so we don't check for the OS type on every single run. This should be handled by the compiler before-hand. This'll also make the program smaller since we won't need the "runtime" library anymore.
-		switch runtime.GOOS {
-		case "android":
-			//To maintain support between termux and other terminal emulators, we'll just save it in $HOME
-			firebountyJSONPath = os.Getenv("HOME") + "/.hacker-scoper/"
-
-		case "linux":
-			firebountyJSONPath = "/etc/hacker-scoper/"
-
-		case "windows":
-			firebountyJSONPath = os.Getenv("APPDATA") + "\\hacker-scoper\\"
-
-		default:
-			if !chainMode {
-				warning("This OS isn't officially supported. The firebounty JSON will be downloaded in the current working directory. To override this behaviour, use the \"--database\" flag.")
-			}
-
-			firebountyJSONPath = ""
+		firebountyJSONPath = getFirebountyJSONPath()
+		if firebountyJSONPath == "" && !chainMode {
+			warning("This OS isn't officially supported. The firebounty JSON will be downloaded in the current working directory. To override this behaviour, use the \"--database\" flag.")
 		}
-
-		if firebountyJSONPath != "" {
-			//If the folder exists...
-			_, err := os.Stat(firebountyJSONPath)
-			if errors.Is(err, os.ErrNotExist) {
-				//Create the folder
-				err := os.Mkdir(firebountyJSONPath, 0600)
-				if err != nil {
-					crash("Unable to create the folder \""+firebountyJSONPath+"\"", err)
-				}
-			} else if err != nil {
-				// Schrodinger: file may or may not exist. See err for details.
-				crash("Could not verify existance of the folder \""+firebountyJSONPath+"\"!", err)
+	} else {
+		//If the folder exists...
+		_, err := os.Stat(firebountyJSONPath)
+		if errors.Is(err, os.ErrNotExist) {
+			//Create the folder
+			err := os.Mkdir(firebountyJSONPath, 0600)
+			if err != nil {
+				crash("Unable to create the folder \""+firebountyJSONPath+"\"", err)
 			}
+		} else if err != nil {
+			// Schrodinger: file may or may not exist. See err for details.
+			crash("Could not verify existance of the folder \""+firebountyJSONPath+"\"!", err)
 		}
 	}
 
