@@ -133,7 +133,7 @@ func main() {
         2: Include subdomains in the scope only if there's a wildcard in the scope.
         3: Include subdomains/IPs in the scope only if they are explicitly within the scope. CIDR ranges and wildcards are disabled
 
-  -ch, --chain-mode
+  -ch, --chain-mode, --plain, --raw, --no-ansi
       In "chain-mode" we only output the important information. No decorations.
 	    Default: false
 	
@@ -174,8 +174,11 @@ func main() {
 	flag.StringVar(&outofScopesListFilepath, "out-of-scope-file", "", "Path to a custom plaintext file containing scopes exclusions")
 	flag.IntVar(&explicitLevel, "e", 1, "Level of explicity expected. ([1]/2/3)")
 	flag.IntVar(&explicitLevel, "explicit-level", 1, "Level of explicity expected. ([1]/2/3)")
-	flag.BoolVar(&chainMode, "ch", false, "In \"chain-mode\" we only output the important information. No decorations.")
-	flag.BoolVar(&chainMode, "chain-mode", false, "In \"chain-mode\" we only output the important information. No decorations.")
+	flag.BoolVar(&chainMode, "ch", false, "Output only the important information. No decorations.")
+	flag.BoolVar(&chainMode, "chain-mode", false, "Output only the important information. No decorations.")
+	flag.BoolVar(&chainMode, "plain", false, "Output only the important information. No decorations.")
+	flag.BoolVar(&chainMode, "raw", false, "Output only the important information. No decorations.")
+	flag.BoolVar(&chainMode, "no-ansi", false, "Output only the important information. No decorations.")
 	flag.StringVar(&firebountyJSONPath, "database", "", "Custom path to the cached firebounty database")
 	flag.StringVar(&inscopeOutputFile, "o", "", "Save the inscope urls to a file")
 	flag.StringVar(&inscopeOutputFile, "output", "", "Save the inscope urls to a file")
