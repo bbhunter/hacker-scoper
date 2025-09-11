@@ -92,6 +92,9 @@ func main() {
 	var outofScopesListFilepath string
 	usedstdin = false
 
+	// TODO: Add alternative flags for --chain-mode: --plain, --raw, or --no-ansi
+	// TODO: Remove golang version from the usage string.
+
 	const usage = `Hacker-scoper is a Go (v1.17.2) tool designed to assist cybersecurity professionals in bug bounty programs. It identifies and excludes URLs and IP addresses that fall outside a program's scope by comparing input targets (URLs/IPs) against a locally cached [FireBounty](https://firebounty.com) database of scraped scope data. Users may also supply a custom scope list for validation.
 
 ` + colorBlue + `Usage:` + colorReset + ` hacker-scoper --file /path/to/targets [--company company | --inscopes-file /path/to/inscopes [--outofscopes-file /path/to/outofscopes]] [--explicit-level INT] [--chain-mode] [--database /path/to/firebounty.json] [--include-unsure] [--output /path/to/outputfile] [--hostnames-only]
@@ -127,9 +130,9 @@ func main() {
 
   -e, --explicit-level int
       How explicit we expect the scopes to be:
-       1 (default): Include subdomains in the scope even if there's not a wildcard in the scope
-       2: Include subdomains in the scope only if there's a wildcard in the scope
-       3: Include subdomains in the scope only if they are explicitly within the scope 
+        1 (default): Include subdomains in the scope even if there's not a wildcard in the scope.
+        2: Include subdomains in the scope only if there's a wildcard in the scope.
+        3: Include subdomains/IPs in the scope only if they are explicitly within the scope. CIDR ranges and wildcards are disabled
 
   -ch, --chain-mode
       In "chain-mode" we only output the important information. No decorations.
@@ -1054,9 +1057,9 @@ func isInscope(inscopeScopes *[]interface{}, target *interface{}, explicitLevel 
 	switch assertedTarget := (*target).(type) {
 	// If the target is an IP Address...
 	case *net.IP:
-		return isInscopeIP(assertedTarget, inscopeScopes)
+		return isInscopeIP(assertedTarget, inscopeScopes, explicitLevel)
 	case *URLWithIPAddressHost:
-		return isInscopeIP(&assertedTarget.IPhost, inscopeScopes)
+		return isInscopeIP(&assertedTarget.IPhost, inscopeScopes, explicitLevel)
 
 	// If the target is a URL...
 	case *url.URL:
@@ -1095,24 +1098,44 @@ func isInscope(inscopeScopes *[]interface{}, target *interface{}, explicitLevel 
 	return false
 }
 
-func isInscopeIP(targetIP *net.IP, inscopeScopes *[]interface{}) (result bool) {
-	// For each scope in inscopeScopes...
-	for i := 0; i < len(*inscopeScopes); i++ {
-		// We're only interested in comparing IP targets against CIDR networks and IP addresses.
-		switch assertedScope := (*inscopeScopes)[i].(type) {
-		// If the i scope is a CIDR network...
-		case *net.IPNet:
-			result = assertedScope.Contains(*targetIP)
+func isInscopeIP(targetIP *net.IP, inscopeScopes *[]interface{}, explicitLevel *int) (result bool) {
+	if *explicitLevel == 3 {
+		// For each scope in inscopeScopes...
+		for i := 0; i < len(*inscopeScopes); i++ {
+			// We're only interested in comparing IP targets against IP addresses.
+			// CIDR scopes are disabled in --explicit-level=3
+			switch assertedScope := (*inscopeScopes)[i].(type) {
 
-		// If the i scope is an IP Address...
-		case *net.IP:
-			result = assertedScope.Equal(*targetIP)
+			// If the i scope is an IP Address...
+			case *net.IP:
+				result = assertedScope.Equal(*targetIP)
 
-			// TODO: Add a regex case for comparing against target IP addresses
+				// TODO: Add a regex case for comparing against target IP addresses
+			}
+			if result {
+				return result
+			}
 		}
-		if result {
-			return result
+		return false
+	} else {
+		// For each scope in inscopeScopes...
+		for i := 0; i < len(*inscopeScopes); i++ {
+			// We're only interested in comparing IP targets against CIDR networks and IP addresses.
+			switch assertedScope := (*inscopeScopes)[i].(type) {
+			// If the i scope is a CIDR network...
+			case *net.IPNet:
+				result = assertedScope.Contains(*targetIP)
+
+			// If the i scope is an IP Address...
+			case *net.IP:
+				result = assertedScope.Equal(*targetIP)
+
+				// TODO: Add a regex case for comparing against target IP addresses
+			}
+			if result {
+				return result
+			}
 		}
+		return false
 	}
-	return false
 }
