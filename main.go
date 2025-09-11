@@ -599,7 +599,7 @@ func main() {
 		}
 
 		// Flush any buffered data to disk
-		writer.Flush()
+		writer.Flush() // #nosec G104 -- No need to handle any writer errors, since we already crash upon encountering any writer error.
 
 		//Close the output file
 		f.Close() // #nosec G104 -- There's no harm done if we're unable to close the output file, since we're already at the end of the program.
