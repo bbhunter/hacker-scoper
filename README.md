@@ -18,13 +18,21 @@ This project is developed and maintained by [ItsIgnacioPortal](https://github.co
 ## 🌟 Features
 
 - **Automatic scope detection**: Hacker-Scoper maintains an automatically-updated cached database of public program scopes. This means you don't need to manually specify the program scope unless the bug bounty program is private. You just need to supply the company name (`-c company-name-here`).
+
 - **Easy customization**: You can load the scope of any private program into files named `.inscope` for inscope assets, and `.noscope` for out-of-scope assets.
+
 - **Match any asset**: Hacker-Scoper works with IPv4, IPv6, and any URL format (including URLs with non-conventional schemes, like `sql://` or `redis://`).
+
 - **Wildcard support**: Hacker-Scoper supports wildcards in any part of your scope, allowing you to use filters like `amzn*.example.com` and `dev.*.example.com`.
+
 - **CIDR Range support**: You can use CIDR ranges in your scopes to filter IP addresses, for example: `10.49.20.0/24` for IPv4 and `2001:DB8::/32` for IPv6.
+
 - **Automation friendly**: Use the `-ch`/`--chain-mode` argument to disable the fancy text decorations and output only the in-scope assets. Hacker-scoper also supports input from stdin.
+
 - **Compatible**: Hacker-Scoper is compatible with Windows, Linux, MacOS and Android in all architectures.
+
 - **Flexible**: For any companies with vaguely defined scopes, you can enable or disable scope wildcard parsing using the command-line argument `-e`/`--explicit-level`.
+
 - **Misconfiguration detection**: Using TLD-Based detection, hacker-scoper can automatically detect misconfigurations in bug-bounty program scopes. For example: Sometimes bug bounty programs set APK package names such as `com.my.businness.gatewayportal` as `web_application` resources instead of as `android_application` resources in their program scope, causing trouble for anyone using automatic tools. Hacker-Scoper automatically detects these errors and notifies the user.
 
 ## 📦 Installation
