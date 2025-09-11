@@ -789,6 +789,7 @@ func getCompanyScopes(firebountyJSON *Firebounty, companyIndex *int) (inscopeLin
 
 			rawInScope := firebountyJSON.Pgms[*companyIndex].Scopes.In_scopes[inscopeCounter].Scope
 
+			// TODO: Optimize this. It's very inneficient to be parsing this line twice. parseLine is already called within isAndroidPackageName, so we shouldn't call it again, that's redundant.
 			if !isAndroidPackageName(&rawInScope) {
 				inscopeLines = append(inscopeLines, rawInScope)
 			}
