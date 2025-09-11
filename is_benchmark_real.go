@@ -10,7 +10,7 @@ import (
 var f *os.File
 
 func StartBenchmark() bool {
-	f, err := os.Create("cpu.prof")
+	f, err := os.Create(`.\benchmarking\profiling-output\cpu.prof`)
 	if err != nil {
 		crash("could not create CPU profile: ", err)
 	}
