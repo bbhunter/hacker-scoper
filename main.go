@@ -593,10 +593,10 @@ func main() {
 			crash("Unable to read output file", err)
 		}
 
-		//for each inscope asset...
+		// Use bufio.Writer for efficient disk writes
+		writer := bufio.NewWriter(f)
 		for i := range inscopeAssetsAsStrings {
-			//write it to the output file
-			_, err = f.WriteString(inscopeAssetsAsStrings[i] + "\n")
+			_, err = writer.WriteString(inscopeAssetsAsStrings[i] + "\n")
 			if err != nil {
 				crash("Unable to write to output file", err)
 			}
@@ -607,12 +607,15 @@ func main() {
 			//for each unsure asset...
 			for i := range unsureAssetsAsStrings {
 				//write it to the output file
-				_, err = f.WriteString(unsureAssetsAsStrings[i] + "\n")
+				_, err = writer.WriteString(unsureAssetsAsStrings[i] + "\n")
 				if err != nil {
 					crash("Unable to write to output file", err)
 				}
 			}
 		}
+
+		// Flush any buffered data to disk
+		writer.Flush()
 
 		//Close the output file
 		f.Close() // #nosec G104 -- There's no harm done if we're unable to close the output file, since we're already at the end of the program.
