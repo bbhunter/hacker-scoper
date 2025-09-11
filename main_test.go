@@ -37,6 +37,9 @@ func equals(tb testing.TB, exp, act interface{}) {
 //========================================================================
 //========================================================================
 
+// -----------------------------------
+//     TESTING THE LINE PARSING
+
 func Test_parseLine_Scope_IP(t *testing.T) {
 	scope := "192.168.0.1"
 	scopeParsed := net.ParseIP(scope)
@@ -344,6 +347,66 @@ func Test_parseLine_Target_URL_IPv4_Port_NoScheme_WithPath(t *testing.T) {
 	checkForErrors(t, err)
 	equals(t, &parsedScope, result)
 
+}
+
+// -----------------------------------
+//     TESTING THE SCOPE MATCHING
+
+func Test_isInscope_CIDR_IPv4(t *testing.T) {
+	var result bool
+	var scopes []interface{}
+	asset := net.ParseIP("192.168.0.1")
+	var iface interface{} = &asset
+
+	// Test inscope CIDR. --explicit-level=1
+	_, cidr, _ := net.ParseCIDR("192.168.0.1/24")
+	scopes = []interface{}{cidr}
+
+	explicitLevel := 1
+
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, true, result)
+
+	// Test out-of-scope CIDR. --explicit-level=1
+	_, cidr, _ = net.ParseCIDR("192.168.1.1/24")
+	scopes = []interface{}{cidr}
+
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result)
+
+	// Test inscope CIDR. --explicit-level=2
+	// --explicit-level=2 shouldn't affect IP address scope matching.
+	_, cidr, _ = net.ParseCIDR("192.168.0.1/24")
+	scopes = []interface{}{cidr}
+
+	explicitLevel = 2
+
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, true, result)
+
+	// Test out-of-scope CIDR. --explicit-level=2
+	_, cidr, _ = net.ParseCIDR("192.168.1.1/24")
+	scopes = []interface{}{cidr}
+
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result)
+
+	// Test inscope CIDR. --explicit-level=3
+	// --explicit-level=3 should disable CIDR range matching.
+	_, cidr, _ = net.ParseCIDR("192.168.0.1/24")
+	scopes = []interface{}{cidr}
+
+	explicitLevel = 3
+
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result)
+
+	// Test out-of-scope CIDR. --explicit-level=3
+	_, cidr, _ = net.ParseCIDR("192.168.1.1/24")
+	scopes = []interface{}{cidr}
+
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result)
 }
 
 /*
