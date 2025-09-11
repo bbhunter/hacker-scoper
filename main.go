@@ -410,7 +410,7 @@ func main() {
 			//appearently "while" doesn't exist in Go. It has been replaced by "for"
 			for userPickedInvalidChoice {
 				//For every matchingCompanyList item...
-				for i := 0; i < len(matchingCompanyList)-1; i++ {
+				for i := range matchingCompanyList {
 					//Print it
 					fmt.Println("    " + strconv.Itoa(i) + " - " + matchingCompanyList[i].companyName)
 				}
@@ -441,7 +441,7 @@ func main() {
 			//If the user chose to "COMBINE ALL"...
 			if userChoiceAsInt == len(matchingCompanyList) {
 				//for every company that matched the company query...
-				for i := 0; i < len(matchingCompanyList); i++ {
+				for i := range matchingCompanyList {
 
 					//Load the matchingCompanyList 2D slice, and convert the first member from string to integer, and save the company index
 					companyIndex := matchingCompanyList[i].companyIndex
@@ -559,7 +559,7 @@ func main() {
 
 		if includeUnsure {
 			//for each unsureURLs item...
-			for i := 0; i < len(unsureAssetsAsStrings); i++ {
+			for i := range unsureAssetsAsStrings {
 				if !chainMode {
 					infoWarning("UNSURE: ", unsureAssetsAsStrings[i])
 				} else {
@@ -643,8 +643,7 @@ func parseAllScopes(inscopeScopes *[]interface{}, noscopeScopes *[]interface{}, 
 	// This function is where we'll implement the --include-unsure logic
 
 	// For each target...
-	for i := 0; i < len(*targets); i++ {
-		target := (*targets)[i]
+	for _, target := range *targets {
 		targetIsOutOfScope := isOutOfScope(noscopeScopes, &target, explicitLevel)
 		if !targetIsOutOfScope {
 			// We only need to check if the target is inscope if it isn't out of scope.
@@ -994,7 +993,7 @@ func interfaceToStrings(interfaces *[]interface{}, isScope bool) (strings []stri
 
 	if isScope {
 		// For each interface in interfaces...
-		for i := 0; i < len(*interfaces); i++ {
+		for i := range *interfaces {
 			switch v := (*interfaces)[i].(type) {
 			case *net.IPNet:
 				// If it's a CIDR network...
@@ -1017,7 +1016,7 @@ func interfaceToStrings(interfaces *[]interface{}, isScope bool) (strings []stri
 	} else {
 		// If the given interfaces are not scopes, they are targets. Targets are never CIDR ranges, or regular expressions.
 		// For each interface in interfaces...
-		for i := 0; i < len(*interfaces); i++ {
+		for i := range *interfaces {
 			switch assertedInterface := (*interfaces)[i].(type) {
 			case *net.IP:
 				// If it's an IP Address
@@ -1053,7 +1052,7 @@ func isInscope(inscopeScopes *[]interface{}, target *interface{}, explicitLevel 
 
 	// If the target is a URL...
 	case *url.URL:
-		for i := 0; i < len(*inscopeScopes); i++ {
+		for i := range *inscopeScopes {
 			// We're only interested in comparing URL targets against URL scopes, and regex.
 			switch assertedScope := (*inscopeScopes)[i].(type) {
 			// If the i scope is a URL...
@@ -1091,7 +1090,7 @@ func isInscope(inscopeScopes *[]interface{}, target *interface{}, explicitLevel 
 func isInscopeIP(targetIP *net.IP, inscopeScopes *[]interface{}, explicitLevel *int) (result bool) {
 	if *explicitLevel == 3 {
 		// For each scope in inscopeScopes...
-		for i := 0; i < len(*inscopeScopes); i++ {
+		for i := range *inscopeScopes {
 			// We're only interested in comparing IP targets against IP addresses.
 			// CIDR scopes are disabled in --explicit-level=3
 			switch assertedScope := (*inscopeScopes)[i].(type) {
@@ -1109,7 +1108,7 @@ func isInscopeIP(targetIP *net.IP, inscopeScopes *[]interface{}, explicitLevel *
 		return false
 	} else {
 		// For each scope in inscopeScopes...
-		for i := 0; i < len(*inscopeScopes); i++ {
+		for i := range *inscopeScopes {
 			// We're only interested in comparing IP targets against CIDR networks and IP addresses.
 			switch assertedScope := (*inscopeScopes)[i].(type) {
 			// If the i scope is a CIDR network...
