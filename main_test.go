@@ -409,6 +409,63 @@ func Test_isInscope_CIDR_IPv4(t *testing.T) {
 	equals(t, false, result)
 }
 
+func Test_isInscope_CIDR_IPv6(t *testing.T) {
+	var result bool
+	var scopes []interface{}
+	asset := net.ParseIP("2001:DB8:0000:0000:0000:0000:0000:0001")
+	var iface interface{} = &asset
+
+	// Test inscope CIDR. --explicit-level=1
+	_, cidr, _ := net.ParseCIDR("2001:DB8::/32")
+	scopes = []interface{}{cidr}
+
+	explicitLevel := 1
+
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, true, result)
+
+	// Test out-of-scope CIDR. --explicit-level=1
+	_, cidr, _ = net.ParseCIDR("2001:DB9::/32")
+	scopes = []interface{}{cidr}
+
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result)
+
+	// Test inscope CIDR. --explicit-level=2
+	// --explicit-level=2 shouldn't affect IP address scope matching.
+	_, cidr, _ = net.ParseCIDR("2001:DB8::/32")
+	scopes = []interface{}{cidr}
+
+	explicitLevel = 2
+
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, true, result)
+
+	// Test out-of-scope CIDR. --explicit-level=2
+	_, cidr, _ = net.ParseCIDR("2001:DB9::/32")
+	scopes = []interface{}{cidr}
+
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result)
+
+	// Test inscope CIDR. --explicit-level=3
+	// --explicit-level=3 should disable CIDR range matching.
+	_, cidr, _ = net.ParseCIDR("2001:DB8::/32")
+	scopes = []interface{}{cidr}
+
+	explicitLevel = 3
+
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result)
+
+	// Test out-of-scope CIDR. --explicit-level=3
+	_, cidr, _ = net.ParseCIDR("2001:DB9::/32")
+	scopes = []interface{}{cidr}
+
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result)
+}
+
 /*
 func Example_parseOutOfScopes() {
 	// Test with an invalid out-of-scope string
