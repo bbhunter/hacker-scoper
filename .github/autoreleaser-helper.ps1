@@ -51,8 +51,8 @@ $version = $version -replace 'v',''
 (Get-Content $filePath).Replace("VERSIONHERE",$version) | Set-Content $filePath
 
 echo 'Compressing files...'
-Compress-Archive $env:TEMP\windows_386\hacker-scoper.exe -DestinationPath choco\hacker-scoper\tools\hacker-scoper_$($version)_windows_386.zip
-Compress-Archive $env:TEMP\windows_amd64\hacker-scoper.exe -DestinationPath choco\hacker-scoper\tools\hacker-scoper_$($version)_windows_amd64.zip
+Compress-Archive $env:TEMP\windows_386\hacker-scoper.exe -DestinationPath choco\hacker-scoper\tools\hacker-scoper_v$($version)_windows_32-bit.zip
+Compress-Archive $env:TEMP\windows_amd64\hacker-scoper.exe -DestinationPath choco\hacker-scoper\tools\hacker-scoper_v$($version)_windows_64-bit.zip
 
 cd choco\hacker-scoper
 echo $pwd
