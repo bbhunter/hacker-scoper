@@ -54,3 +54,12 @@ builds:
       - arm
       - arm64
       - "386"
+
+    overrides:
+      - goos: windows
+        goarch: any
+        tags: windows
+      - goos: linux
+        goarch: any
+        tags: linux
+      
