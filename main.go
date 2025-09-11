@@ -83,6 +83,8 @@ var outputDomainsOnly bool
 
 func main() {
 
+	StartBenchmark()
+
 	var quietMode bool
 	var showVersion bool
 	var company string
@@ -620,6 +622,7 @@ func main() {
 		//Close the output file
 		f.Close() // #nosec G104 -- There's no harm done if we're unable to close the output file, since we're already at the end of the program.
 	}
+	StopBenchmark()
 	cleanup()
 
 }
