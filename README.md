@@ -29,7 +29,7 @@ This project is developed and maintained by [ItsIgnacioPortal](https://github.co
 
 - **Automation friendly**: Use the `-ch`/`--chain-mode` argument to disable the fancy text decorations and output only the in-scope assets. Hacker-scoper also supports input from stdin.
 
-- **Compatible**: Hacker-Scoper is compatible with Windows, Linux, MacOS and Android in all architectures.
+- **Compatible**: Hacker-Scoper is compatible with Windows, Linux and MacOS in all architectures.
 
 - **Flexible**: For any companies with vaguely defined scopes, you can enable or disable scope wildcard/CIDR parsing using the command-line argument `-e`/`--explicit-level`.
 
@@ -101,6 +101,7 @@ Usage: hacker-scoper --file /path/to/targets [--company company | --inscope-file
 | --database |  | Custom path to the cached firebounty database |
 | -iu | --include-unsure |  Include "unsure" URLs in the output. An unsure URL is a URL that's not in scope, but is also not out of scope. Very probably unrelated to the bug bounty program. |
 | -o | --output |  Save the inscope urls to a file |
+|    | --quiet | Disable command-line output. |
 | -ho | --hostnames-only |  Output only hostnames instead of the full URLs |
 | --version |  | Show the installed version |
 |_______________|___________________| _____________________________________ |

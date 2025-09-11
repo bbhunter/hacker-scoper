@@ -13,7 +13,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -83,6 +82,9 @@ var outputDomainsOnly bool
 
 func main() {
 
+	StartBenchmark()
+
+	var quietMode bool
 	var showVersion bool
 	var company string
 	// TODO: Replace the flag library with something that allows us to read and store explicit level straight into a uint8 variable. This doesn't need to be a full 32-bit int.
@@ -91,8 +93,6 @@ func main() {
 	var scopesListFilepath string
 	var outofScopesListFilepath string
 	usedstdin = false
-
-	// TODO: Add alternative flags for --chain-mode: --plain, --raw, or --no-ansi
 
 	const usage = `Hacker-scoper is a GoLang tool designed to assist cybersecurity professionals in bug bounty programs. It identifies and excludes URLs and IP addresses that fall outside a program's scope by comparing input targets (URLs/IPs) against a locally cached [FireBounty](https://firebounty.com) database of scraped scope data. Users may also supply a custom scope list for validation.
 
@@ -150,6 +150,9 @@ func main() {
   -o, --output string
       Save the inscope urls to a file
 
+  --quiet
+      Disable command-line output.
+
   -ho, --hostnames-only
       Output only hostnames instead of the full URLs
 
@@ -182,6 +185,7 @@ func main() {
 	flag.StringVar(&firebountyJSONPath, "database", "", "Custom path to the cached firebounty database")
 	flag.StringVar(&inscopeOutputFile, "o", "", "Save the inscope urls to a file")
 	flag.StringVar(&inscopeOutputFile, "output", "", "Save the inscope urls to a file")
+	flag.BoolVar(&quietMode, "quiet", false, "Disable command-line output.")
 	flag.BoolVar(&showVersion, "version", false, "Show installed version")
 	flag.BoolVar(&includeUnsure, "iu", false, "Include \"unsure\" URLs in the output. An unsure URL is a URL that's not in scope, but is also not out of scope. Very probably unrelated to the bug bounty program.")
 	flag.BoolVar(&includeUnsure, "include-unsure", false, "Include \"unsure\" URLs in the output. An unsure URL is a URL that's not in scope, but is also not out of scope. Very probably unrelated to the bug bounty program.")
@@ -202,50 +206,38 @@ func main() {
 `
 
 	if showVersion {
-		fmt.Print("hacker-scoper: v5.1.1\n")
+		fmt.Print("hacker-scoper: v5.1.2\n")
 		os.Exit(0)
 	}
 
+	if quietMode && inscopeOutputFile == "" {
+		warning("--quiet was set, but no output file was specified. Program will do nothing.")
+		os.Exit(2)
+	}
+
 	if firebountyJSONPath == "" {
-		// TODO: Optimize this code so we don't check for the OS type on every single run. This should be handled by the compiler before-hand. This'll also make the program smaller since we won't need the "runtime" library anymore.
-		switch runtime.GOOS {
-		case "android":
-			//To maintain support between termux and other terminal emulators, we'll just save it in $HOME
-			firebountyJSONPath = os.Getenv("HOME") + "/.hacker-scoper/"
-
-		case "linux":
-			firebountyJSONPath = "/etc/hacker-scoper/"
-
-		case "windows":
-			firebountyJSONPath = os.Getenv("APPDATA") + "\\hacker-scoper\\"
-
-		default:
-			if !chainMode {
-				warning("This OS isn't officially supported. The firebounty JSON will be downloaded in the current working directory. To override this behaviour, use the \"--database\" flag.")
-			}
-
-			firebountyJSONPath = ""
+		firebountyJSONPath = getFirebountyJSONPath()
+		if firebountyJSONPath == "" && !chainMode {
+			warning("This OS isn't officially supported. The firebounty JSON will be downloaded in the current working directory. To override this behaviour, use the \"--database\" flag.")
 		}
-
-		if firebountyJSONPath != "" {
-			//If the folder exists...
-			_, err := os.Stat(firebountyJSONPath)
-			if errors.Is(err, os.ErrNotExist) {
-				//Create the folder
-				err := os.Mkdir(firebountyJSONPath, 0600)
-				if err != nil {
-					crash("Unable to create the folder \""+firebountyJSONPath+"\"", err)
-				}
-			} else if err != nil {
-				// Schrodinger: file may or may not exist. See err for details.
-				crash("Could not verify existance of the folder \""+firebountyJSONPath+"\"!", err)
+	} else {
+		//If the folder exists...
+		_, err := os.Stat(firebountyJSONPath)
+		if errors.Is(err, os.ErrNotExist) {
+			//Create the folder
+			err := os.Mkdir(firebountyJSONPath, 0600)
+			if err != nil {
+				crash("Unable to create the folder \""+firebountyJSONPath+"\"", err)
 			}
+		} else if err != nil {
+			// Schrodinger: file may or may not exist. See err for details.
+			crash("Could not verify existance of the folder \""+firebountyJSONPath+"\"!", err)
 		}
 	}
 
 	firebountyJSONPath = firebountyJSONPath + firebountyJSONFilename
 
-	if !chainMode {
+	if !chainMode && !quietMode {
 		fmt.Println(banner)
 	}
 
@@ -554,23 +546,25 @@ func main() {
 	inscopeAssetsAsStrings := interfaceToStrings(&inscopeAssets, false)
 	unsureAssetsAsStrings := interfaceToStrings(&unsureAssets, false)
 
-	//Yes, I could've made this into a function instead of copying the same chunk of code, but it just doesn't make any sense as a function IMO
-	//For each item in inscopeAssetsAsStrings...
-	for i := range inscopeAssetsAsStrings {
-		if !chainMode {
-			infoGood("IN-SCOPE: ", inscopeAssetsAsStrings[i])
-		} else {
-			fmt.Println(inscopeAssetsAsStrings[i])
-		}
-	}
-
-	if includeUnsure {
-		//for each unsureURLs item...
-		for i := 0; i < len(unsureAssetsAsStrings); i++ {
+	if !quietMode {
+		//Yes, I could've made this into a function instead of copying the same chunk of code, but it just doesn't make any sense as a function IMO
+		//For each item in inscopeAssetsAsStrings...
+		for i := range inscopeAssetsAsStrings {
 			if !chainMode {
-				infoWarning("UNSURE: ", unsureAssetsAsStrings[i])
+				infoGood("IN-SCOPE: ", inscopeAssetsAsStrings[i])
 			} else {
-				fmt.Println(unsureAssetsAsStrings[i])
+				fmt.Println(inscopeAssetsAsStrings[i])
+			}
+		}
+
+		if includeUnsure {
+			//for each unsureURLs item...
+			for i := 0; i < len(unsureAssetsAsStrings); i++ {
+				if !chainMode {
+					infoWarning("UNSURE: ", unsureAssetsAsStrings[i])
+				} else {
+					fmt.Println(unsureAssetsAsStrings[i])
+				}
 			}
 		}
 	}
@@ -583,10 +577,10 @@ func main() {
 			crash("Unable to read output file", err)
 		}
 
-		//for each inscope asset...
+		// Use bufio.Writer for efficient disk writes
+		writer := bufio.NewWriter(f)
 		for i := range inscopeAssetsAsStrings {
-			//write it to the output file
-			_, err = f.WriteString(inscopeAssetsAsStrings[i] + "\n")
+			_, err = writer.WriteString(inscopeAssetsAsStrings[i] + "\n")
 			if err != nil {
 				crash("Unable to write to output file", err)
 			}
@@ -597,16 +591,20 @@ func main() {
 			//for each unsure asset...
 			for i := range unsureAssetsAsStrings {
 				//write it to the output file
-				_, err = f.WriteString(unsureAssetsAsStrings[i] + "\n")
+				_, err = writer.WriteString(unsureAssetsAsStrings[i] + "\n")
 				if err != nil {
 					crash("Unable to write to output file", err)
 				}
 			}
 		}
 
+		// Flush any buffered data to disk
+		writer.Flush() // #nosec G104 -- No need to handle any writer errors, since we already crash upon encountering any writer error.
+
 		//Close the output file
 		f.Close() // #nosec G104 -- There's no harm done if we're unable to close the output file, since we're already at the end of the program.
 	}
+	StopBenchmark()
 	cleanup()
 
 }
@@ -647,13 +645,13 @@ func parseAllScopes(inscopeScopes *[]interface{}, noscopeScopes *[]interface{}, 
 	// For each target...
 	for i := 0; i < len(*targets); i++ {
 		target := (*targets)[i]
-		targetIsInscope := isInscope(inscopeScopes, &target, explicitLevel)
 		targetIsOutOfScope := isOutOfScope(noscopeScopes, &target, explicitLevel)
-
-		if targetIsInscope && !targetIsOutOfScope {
-			inscopeAssets = append(inscopeAssets, target)
-		} else if includeUnsure {
-			if !targetIsInscope && !targetIsOutOfScope {
+		if !targetIsOutOfScope {
+			// We only need to check if the target is inscope if it isn't out of scope.
+			targetIsInscope := isInscope(inscopeScopes, &target, explicitLevel)
+			if targetIsInscope {
+				inscopeAssets = append(inscopeAssets, target)
+			} else if includeUnsure && !targetIsInscope {
 				unsureAssets = append(unsureAssets, target)
 			}
 		}
@@ -682,12 +680,16 @@ func infoWarning(prefix string, message string) {
 	fmt.Print(string(colorYellow) + "[+] " + prefix + string(colorReset) + message + "\n")
 }
 
-func removePortFromHost(url *url.URL) string {
-	//code readability > efficiency
-	portless := strings.Replace(string(url.Host), string(url.Port()), "", 1)
-	//obligatory cleanup ("192.168.1.1:" -> "192.168.1.1")
-	portless = strings.Replace(portless, ":", "", 1)
-	return portless
+func removePortFromHost(myurl *url.URL) string {
+	portLength := len(myurl.Port())
+	if portLength != 0 {
+		hostLength := len(myurl.Host)
+		// The last "-1" removes the ":" character from the host.
+		portless := myurl.Host[:hostLength-portLength-1]
+		return portless
+	} else {
+		return myurl.Host
+	}
 }
 
 // out-of-scopes are parsed as --explicit-level==2
@@ -854,12 +856,6 @@ func isAndroidPackageName(rawScope *string) bool {
 	return false
 }
 
-// TODO: Add pre-compilation processing to remove this logic from the final exe.
-func isVSCodeDebug() bool {
-	// Set an environment variable in your VS Code launch config, e.g. "VSCODE_DEBUG=true"
-	return os.Getenv("VSCODE_DEBUG") == "true"
-}
-
 // This function receives a filepath as a string, and returns a string with the contents of the file
 // All lines are trimmed, and empty lines are removed
 // All lines beginning with '#' or '//' are considered comments and are removed
@@ -899,8 +895,6 @@ func readFileLines(filepath string) ([]string, error) {
 //
 // This function returns the error ErrInvalidFormat if the string didn't match any of the listed formats.
 func parseLine(line string, isScope bool) (interface{}, error) {
-
-	// TODO: Fix CIDR detection of IPv6 CIDR ranges. For some reason they're detected as URLs instead of as CIDR ranges.
 
 	// TODO: Add a --optimize flag that when enabled will save all of the inscope, and noscope scopes in a separate file, with their type already determined, so we don't have to waste time guessing the scope type every time hacker-scoper is run. Maybe in CSV format. We could also use the file last-modified-at metadata to know whether the .inscope and .noscope files were modified. The --optimize flag should only have an effect when hacker-scoper is ran with .inscope and .noscope files, or with the firebounty db.It wouldn't make sense to optimize the input of stdin.
 
