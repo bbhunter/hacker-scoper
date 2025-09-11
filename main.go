@@ -83,6 +83,7 @@ var outputDomainsOnly bool
 
 func main() {
 
+	var quietMode bool
 	var showVersion bool
 	var company string
 	// TODO: Replace the flag library with something that allows us to read and store explicit level straight into a uint8 variable. This doesn't need to be a full 32-bit int.
@@ -148,6 +149,9 @@ func main() {
   -o, --output string
       Save the inscope urls to a file
 
+  --quiet
+      Disable command-line output.
+
   -ho, --hostnames-only
       Output only hostnames instead of the full URLs
 
@@ -180,6 +184,7 @@ func main() {
 	flag.StringVar(&firebountyJSONPath, "database", "", "Custom path to the cached firebounty database")
 	flag.StringVar(&inscopeOutputFile, "o", "", "Save the inscope urls to a file")
 	flag.StringVar(&inscopeOutputFile, "output", "", "Save the inscope urls to a file")
+	flag.BoolVar(&quietMode, "quiet", false, "Disable command-line output.")
 	flag.BoolVar(&showVersion, "version", false, "Show installed version")
 	flag.BoolVar(&includeUnsure, "iu", false, "Include \"unsure\" URLs in the output. An unsure URL is a URL that's not in scope, but is also not out of scope. Very probably unrelated to the bug bounty program.")
 	flag.BoolVar(&includeUnsure, "include-unsure", false, "Include \"unsure\" URLs in the output. An unsure URL is a URL that's not in scope, but is also not out of scope. Very probably unrelated to the bug bounty program.")
@@ -202,6 +207,11 @@ func main() {
 	if showVersion {
 		fmt.Print("hacker-scoper: v5.1.1\n")
 		os.Exit(0)
+	}
+
+	if quietMode && inscopeOutputFile == "" {
+		warning("--quiet was set, but no output file was specified. Program will do nothing.")
+		os.Exit(2)
 	}
 
 	if firebountyJSONPath == "" {
@@ -243,7 +253,7 @@ func main() {
 
 	firebountyJSONPath = firebountyJSONPath + firebountyJSONFilename
 
-	if !chainMode {
+	if !chainMode && !quietMode {
 		fmt.Println(banner)
 	}
 
@@ -552,23 +562,25 @@ func main() {
 	inscopeAssetsAsStrings := interfaceToStrings(&inscopeAssets, false)
 	unsureAssetsAsStrings := interfaceToStrings(&unsureAssets, false)
 
-	//Yes, I could've made this into a function instead of copying the same chunk of code, but it just doesn't make any sense as a function IMO
-	//For each item in inscopeAssetsAsStrings...
-	for i := range inscopeAssetsAsStrings {
-		if !chainMode {
-			infoGood("IN-SCOPE: ", inscopeAssetsAsStrings[i])
-		} else {
-			fmt.Println(inscopeAssetsAsStrings[i])
-		}
-	}
-
-	if includeUnsure {
-		//for each unsureURLs item...
-		for i := 0; i < len(unsureAssetsAsStrings); i++ {
+	if !quietMode {
+		//Yes, I could've made this into a function instead of copying the same chunk of code, but it just doesn't make any sense as a function IMO
+		//For each item in inscopeAssetsAsStrings...
+		for i := range inscopeAssetsAsStrings {
 			if !chainMode {
-				infoWarning("UNSURE: ", unsureAssetsAsStrings[i])
+				infoGood("IN-SCOPE: ", inscopeAssetsAsStrings[i])
 			} else {
-				fmt.Println(unsureAssetsAsStrings[i])
+				fmt.Println(inscopeAssetsAsStrings[i])
+			}
+		}
+
+		if includeUnsure {
+			//for each unsureURLs item...
+			for i := 0; i < len(unsureAssetsAsStrings); i++ {
+				if !chainMode {
+					infoWarning("UNSURE: ", unsureAssetsAsStrings[i])
+				} else {
+					fmt.Println(unsureAssetsAsStrings[i])
+				}
 			}
 		}
 	}
