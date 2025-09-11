@@ -660,13 +660,13 @@ func parseAllScopes(inscopeScopes *[]interface{}, noscopeScopes *[]interface{}, 
 	// For each target...
 	for i := 0; i < len(*targets); i++ {
 		target := (*targets)[i]
-		targetIsInscope := isInscope(inscopeScopes, &target, explicitLevel)
 		targetIsOutOfScope := isOutOfScope(noscopeScopes, &target, explicitLevel)
-
-		if targetIsInscope && !targetIsOutOfScope {
-			inscopeAssets = append(inscopeAssets, target)
-		} else if includeUnsure {
-			if !targetIsInscope && !targetIsOutOfScope {
+		if !targetIsOutOfScope {
+			// We only need to check if the target is inscope if it isn't out of scope.
+			targetIsInscope := isInscope(inscopeScopes, &target, explicitLevel)
+			if targetIsInscope {
+				inscopeAssets = append(inscopeAssets, target)
+			} else if includeUnsure && !targetIsInscope {
 				unsureAssets = append(unsureAssets, target)
 			}
 		}
