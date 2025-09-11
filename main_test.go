@@ -220,11 +220,12 @@ func Test_parseLine_Target_IPv4CIDR(t *testing.T) {
 // so "2001:DB8::/32" turns into "https://2001:DB8::/32" (where "/32" is the URL path)
 func Test_parseLine_Target_IPv6CIDR(t *testing.T) {
 	scope := "2001:DB8::/32"
-	parsedScope, _ := url.Parse("https://" + scope)
+	scopeAsIP := net.ParseIP("2001:DB8::")
+	parsedScope := URLWithIPAddressHost{RawURL: scope, IPhost: scopeAsIP}
 	result, err := parseLine(scope, false)
 
 	checkForErrors(t, err)
-	equals(t, parsedScope, result)
+	equals(t, &parsedScope, result)
 }
 
 func Test_parseLine_Target_URL_Hostname(t *testing.T) {
