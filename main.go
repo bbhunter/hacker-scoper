@@ -829,7 +829,7 @@ func isAndroidPackageName(rawScope *string) bool {
 	// TODO: Split parseLine into 3 functions, so we can directly try to parse the rawScope as a URL rather than wasting CPU cycles trying to parse CIDR Range -> IP Address -> URL.
 	inscope, err := parseLine(*rawScope, true)
 
-	if err != nil {
+	if err != nil && !chainMode {
 		warning("Error parsing \"" + *rawScope + "\".")
 	} else if _, inscopeIsURL := inscope.(*url.URL); inscopeIsURL {
 		// If the type of inscope is *url.URL ...
@@ -973,7 +973,9 @@ func parseAllLines(lines []string, isScopes bool) ([]interface{}, error) {
 	for i, line := range lines {
 		parsedTemp, err := parseLine(line, isScopes)
 		if err != nil {
-			warning("Unable to parse line number " + strconv.Itoa(i) + " as a scope: \"" + line + "\"")
+			if !chainMode {
+				warning("Unable to parse line number " + strconv.Itoa(i) + " as a scope: \"" + line + "\"")
+			}
 		} else {
 			parsed = append(parsed, parsedTemp)
 		}
