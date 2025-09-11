@@ -861,25 +861,18 @@ func isAndroidPackageName(rawScope *string) bool {
 // All lines are trimmed, and empty lines are removed
 // All lines beginning with '#' or '//' are considered comments and are removed
 func readFileLines(filepath string) ([]string, error) {
-	file, err := os.Open(filepath) // #nosec G304 -- filepath is a CLI argument specified by the user running the program. It is not unsafe to allow them to open any file in their own system.
+	data, err := os.ReadFile(filepath) // Reads the whole file into memory
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
-
+	rawLines := strings.Split(string(data), "\n")
 	var lines []string
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
+	for _, line := range rawLines {
+		line = strings.TrimSpace(line)
 		if line != "" && !strings.HasPrefix(line, "#") && !strings.HasPrefix(line, "//") {
 			lines = append(lines, line)
 		}
 	}
-
-	if err := scanner.Err(); err != nil {
-		return nil, err
-	}
-
 	return lines, nil
 }
 
