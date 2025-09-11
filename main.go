@@ -902,8 +902,6 @@ func readFileLines(filepath string) ([]string, error) {
 // This function returns the error ErrInvalidFormat if the string didn't match any of the listed formats.
 func parseLine(line string, isScope bool) (interface{}, error) {
 
-	// TODO: Fix CIDR detection of IPv6 CIDR ranges. For some reason they're detected as URLs instead of as CIDR ranges.
-
 	// TODO: Add a --optimize flag that when enabled will save all of the inscope, and noscope scopes in a separate file, with their type already determined, so we don't have to waste time guessing the scope type every time hacker-scoper is run. Maybe in CSV format. We could also use the file last-modified-at metadata to know whether the .inscope and .noscope files were modified. The --optimize flag should only have an effect when hacker-scoper is ran with .inscope and .noscope files, or with the firebounty db.It wouldn't make sense to optimize the input of stdin.
 
 	if isScope {
