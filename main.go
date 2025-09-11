@@ -856,12 +856,6 @@ func isAndroidPackageName(rawScope *string) bool {
 	return false
 }
 
-// TODO: Add pre-compilation processing to remove this logic from the final exe.
-func isVSCodeDebug() bool {
-	// Set an environment variable in your VS Code launch config, e.g. "VSCODE_DEBUG=true"
-	return os.Getenv("VSCODE_DEBUG") == "true"
-}
-
 // This function receives a filepath as a string, and returns a string with the contents of the file
 // All lines are trimmed, and empty lines are removed
 // All lines beginning with '#' or '//' are considered comments and are removed
