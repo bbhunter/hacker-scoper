@@ -682,12 +682,16 @@ func infoWarning(prefix string, message string) {
 	fmt.Print(string(colorYellow) + "[+] " + prefix + string(colorReset) + message + "\n")
 }
 
-func removePortFromHost(url *url.URL) string {
-	//code readability > efficiency
-	portless := strings.Replace(string(url.Host), string(url.Port()), "", 1)
-	//obligatory cleanup ("192.168.1.1:" -> "192.168.1.1")
-	portless = strings.Replace(portless, ":", "", 1)
-	return portless
+func removePortFromHost(myurl *url.URL) string {
+	portLength := len(myurl.Port())
+	if portLength != 0 {
+		hostLength := len(myurl.Host)
+		// The last "-1" removes the ":" character from the host.
+		portless := myurl.Host[:hostLength-portLength-1]
+		return portless
+	} else {
+		return myurl.Host
+	}
 }
 
 // out-of-scopes are parsed as --explicit-level==2
