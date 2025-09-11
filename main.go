@@ -524,24 +524,6 @@ func main() {
 	}
 
 	inscopeAssets, unsureAssets := parseAllScopes(&inscopeScopes, &noscopeScopes, &targets, &explicitLevel)
-	//OLD DEF: func parseScopesWrapper(scope string, explicitLevel int, targetsListFile *os.File, outofScopesListFilepath string, firebountyOutOfScopes []Scope
-	//NEW DEF: func parseScopesWrapper(inscopeScopes *[]interface{}, explicitLevel *int, targetsInput *[]string, noscopeScopes *[]interface{}) ([]string, []string, error) {
-
-	/*
-		if includeUnsure {
-			//If a URL is in inscopeURLs and unsureURLs, remove it from unsureURLs
-		unsureURLsloopstart:
-			for i := 0; i < len(unsureURLs); i++ {
-				for j := 0; j < len(inscopeURLs); j++ {
-					if unsureURLs[i] == inscopeURLs[j] {
-						unsureURLs = append(unsureURLs[:i], unsureURLs[i+1:]...)
-						goto unsureURLsloopstart
-					}
-				}
-			}
-
-		}
-	*/
 
 	inscopeAssetsAsStrings := interfaceToStrings(&inscopeAssets, false)
 	unsureAssetsAsStrings := interfaceToStrings(&unsureAssets, false)
