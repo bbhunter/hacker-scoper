@@ -1048,10 +1048,7 @@ func isInscope(inscopeScopes *[]interface{}, target *interface{}, explicitLevel 
 					//we DON'T do it by splitting on dots and matching, because that would cause errors with domains that have two top-level-domains (gov.br for example)
 					result = strings.HasSuffix(removePortFromHost(assertedTarget), assertedScope.Host)
 
-				// case 2:
-				// --explicit-level=2 is handled in the case the current scope is a regex. This is because all scopes that have wildcards in them, are automatically turned into regular expressions.
-
-				case 3:
+				case 2, 3:
 					result = removePortFromHost(assertedTarget) == assertedScope.Host
 				}
 
