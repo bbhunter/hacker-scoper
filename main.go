@@ -658,7 +658,7 @@ func infoGood(prefix string, message string) {
 }
 
 func infoWarning(prefix string, message string) {
-	fmt.Print(string(colorYellow) + "[+] " + prefix + string(colorReset) + message + "\n")
+	fmt.Print(string(colorYellow) + "[-] " + prefix + string(colorReset) + message + "\n")
 }
 
 func removePortFromHost(myurl *url.URL) string {
