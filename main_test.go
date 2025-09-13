@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"regexp"
 	"runtime"
+	"strconv"
 	"testing"
 )
 
@@ -356,8 +357,11 @@ func Test_parseLine_Target_URL_IPv4_Port_NoScheme_WithPath(t *testing.T) {
 func Test_isInscope_CIDR_IPv4(t *testing.T) {
 	var result bool
 	var scopes []interface{}
-	asset := net.ParseIP("192.168.0.1")
-	var iface interface{} = &asset
+	assetIP := net.ParseIP("192.168.0.1")
+	assetURLWithIPHost := URLWithIPAddressHost{RawURL: "https://192.168.0.1/path/to/stuff", IPhost: assetIP}
+	assetURLPtr, _ := url.Parse("https://example.com/path/to/stuff")
+	assetURL := *assetURLPtr
+	var iface interface{}
 
 	// Test inscope CIDR. --explicit-level=1
 	_, cidr, _ := net.ParseCIDR("192.168.0.1/24")
@@ -365,13 +369,27 @@ func Test_isInscope_CIDR_IPv4(t *testing.T) {
 
 	explicitLevel := 1
 
+	iface = &assetIP
 	result = isInscope(&scopes, &iface, &explicitLevel)
 	equals(t, true, result)
+	iface = &assetURLWithIPHost
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, true, result)
+	iface = &assetURL
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result)
 
 	// Test out-of-scope CIDR. --explicit-level=1
 	_, cidr, _ = net.ParseCIDR("192.168.1.1/24")
 	scopes = []interface{}{cidr}
 
+	iface = &assetIP
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result)
+	iface = &assetURLWithIPHost
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result)
+	iface = &assetURL
 	result = isInscope(&scopes, &iface, &explicitLevel)
 	equals(t, false, result)
 
@@ -382,13 +400,27 @@ func Test_isInscope_CIDR_IPv4(t *testing.T) {
 
 	explicitLevel = 2
 
+	iface = &assetIP
 	result = isInscope(&scopes, &iface, &explicitLevel)
 	equals(t, true, result)
+	iface = &assetURLWithIPHost
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, true, result)
+	iface = &assetURL
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result)
 
 	// Test out-of-scope CIDR. --explicit-level=2
 	_, cidr, _ = net.ParseCIDR("192.168.1.1/24")
 	scopes = []interface{}{cidr}
 
+	iface = &assetIP
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result)
+	iface = &assetURLWithIPHost
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result)
+	iface = &assetURL
 	result = isInscope(&scopes, &iface, &explicitLevel)
 	equals(t, false, result)
 
@@ -399,6 +431,13 @@ func Test_isInscope_CIDR_IPv4(t *testing.T) {
 
 	explicitLevel = 3
 
+	iface = &assetIP
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result)
+	iface = &assetURLWithIPHost
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result)
+	iface = &assetURL
 	result = isInscope(&scopes, &iface, &explicitLevel)
 	equals(t, false, result)
 
@@ -406,6 +445,13 @@ func Test_isInscope_CIDR_IPv4(t *testing.T) {
 	_, cidr, _ = net.ParseCIDR("192.168.1.1/24")
 	scopes = []interface{}{cidr}
 
+	iface = &assetIP
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result)
+	iface = &assetURLWithIPHost
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result)
+	iface = &assetURL
 	result = isInscope(&scopes, &iface, &explicitLevel)
 	equals(t, false, result)
 }
@@ -413,8 +459,10 @@ func Test_isInscope_CIDR_IPv4(t *testing.T) {
 func Test_isInscope_CIDR_IPv6(t *testing.T) {
 	var result bool
 	var scopes []interface{}
-	asset := net.ParseIP("2001:DB8:0000:0000:0000:0000:0000:0001")
-	var iface interface{} = &asset
+	var iface interface{}
+	assetIP := net.ParseIP("2001:DB8:0000:0000:0000:0000:0000:0001")
+	assetURLWithIPHost := URLWithIPAddressHost{RawURL: "https://2001:DB8:0000:0000:0000:0000:0000:0001/path/to/stuff", IPhost: assetIP}
+	assetURL, _ := url.Parse("https://example.com/path/to/stuff")
 
 	// Test inscope CIDR. --explicit-level=1
 	_, cidr, _ := net.ParseCIDR("2001:DB8::/32")
@@ -422,13 +470,27 @@ func Test_isInscope_CIDR_IPv6(t *testing.T) {
 
 	explicitLevel := 1
 
+	iface = &assetIP
 	result = isInscope(&scopes, &iface, &explicitLevel)
 	equals(t, true, result)
+	iface = &assetURLWithIPHost
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, true, result)
+	iface = &assetURL
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result)
 
 	// Test out-of-scope CIDR. --explicit-level=1
 	_, cidr, _ = net.ParseCIDR("2001:DB9::/32")
 	scopes = []interface{}{cidr}
 
+	iface = &assetIP
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result)
+	iface = &assetURLWithIPHost
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result)
+	iface = &assetURL
 	result = isInscope(&scopes, &iface, &explicitLevel)
 	equals(t, false, result)
 
@@ -439,13 +501,27 @@ func Test_isInscope_CIDR_IPv6(t *testing.T) {
 
 	explicitLevel = 2
 
+	iface = &assetIP
 	result = isInscope(&scopes, &iface, &explicitLevel)
 	equals(t, true, result)
+	iface = &assetURLWithIPHost
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, true, result)
+	iface = &assetURL
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result)
 
 	// Test out-of-scope CIDR. --explicit-level=2
 	_, cidr, _ = net.ParseCIDR("2001:DB9::/32")
 	scopes = []interface{}{cidr}
 
+	iface = &assetIP
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result)
+	iface = &assetURLWithIPHost
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result)
+	iface = &assetURL
 	result = isInscope(&scopes, &iface, &explicitLevel)
 	equals(t, false, result)
 
@@ -456,6 +532,13 @@ func Test_isInscope_CIDR_IPv6(t *testing.T) {
 
 	explicitLevel = 3
 
+	iface = &assetIP
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result)
+	iface = &assetURLWithIPHost
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result)
+	iface = &assetURL
 	result = isInscope(&scopes, &iface, &explicitLevel)
 	equals(t, false, result)
 
@@ -463,8 +546,282 @@ func Test_isInscope_CIDR_IPv6(t *testing.T) {
 	_, cidr, _ = net.ParseCIDR("2001:DB9::/32")
 	scopes = []interface{}{cidr}
 
+	iface = &assetIP
 	result = isInscope(&scopes, &iface, &explicitLevel)
 	equals(t, false, result)
+	iface = &assetURLWithIPHost
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result)
+	iface = &assetURL
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result)
+}
+
+func Test_isInscope_URL(t *testing.T) {
+
+	var result bool
+	var scopes []interface{}
+	var iface interface{}
+	var explicitLevel int
+
+	assetIPv6 := net.ParseIP("2001:DB8:0000:0000:0000:0000:0000:0001")
+	assetURLWithIPv6Host := URLWithIPAddressHost{RawURL: "https://2001:DB8:0000:0000:0000:0000:0000:0001/path/to/stuff", IPhost: assetIPv6}
+	assetIPv4 := net.ParseIP("192.168.0.1")
+	assetURLWithIPv4Host := URLWithIPAddressHost{RawURL: "https://192.168.0.1/path/to/stuff", IPhost: assetIPv4}
+	pointerToassetURL, _ := url.Parse("https://example.com/path/to/stuff")
+	assetURL := *pointerToassetURL
+
+	scope, _ := url.Parse("https://example.com")
+	scopes = append(scopes, scope)
+	explicitLevel = 1
+
+	iface = &assetIPv4
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result)
+	iface = &assetURLWithIPv4Host
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result)
+	iface = &assetIPv6
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result)
+	iface = &assetURLWithIPv6Host
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result)
+	iface = &assetURL
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, true, result)
+
+	pointerToassetURL, _ = url.Parse("https://unrelatedwebsite.com/path/to/stuff")
+	assetURL = *pointerToassetURL
+	// explicitLevel still equals 1
+
+	iface = &assetIPv4
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result)
+	iface = &assetURLWithIPv4Host
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result)
+	iface = &assetIPv6
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result)
+	iface = &assetURLWithIPv6Host
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result)
+	iface = &assetURL
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result)
+
+	pointerToassetURL, _ = url.Parse("https://somesubdomain.example.com/path/to/stuff")
+	assetURL = *pointerToassetURL
+	// explicitLevel still equals 1
+
+	iface = &assetIPv4
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result)
+	iface = &assetURLWithIPv4Host
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result)
+	iface = &assetIPv6
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result)
+	iface = &assetURLWithIPv6Host
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result)
+	iface = &assetURL
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, true, result)
+
+	pointerToassetURL, _ = url.Parse("https://example.com/path/to/stuff")
+	assetURL = *pointerToassetURL
+	explicitLevel = 2
+
+	iface = &assetIPv4
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result)
+	iface = &assetURLWithIPv4Host
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result)
+	iface = &assetIPv6
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result)
+	iface = &assetURLWithIPv6Host
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result)
+	iface = &assetURL
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, true, result) // Since the scope is still just "https://example.com", this should succeed
+
+	pointerToassetURL, _ = url.Parse("https://somesubdomain.example.com/path/to/stuff")
+	assetURL = *pointerToassetURL
+	// explicitLevel = 2
+
+	iface = &assetIPv4
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result)
+	iface = &assetURLWithIPv4Host
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result)
+	iface = &assetIPv6
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result)
+	iface = &assetURLWithIPv6Host
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result)
+	iface = &assetURL
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result) // Since the scope is still just "https://example.com", this should fail
+
+	regexScope := regexp.MustCompile(`.*\.example.com`)
+	scopes = []interface{}{regexScope}
+
+	iface = &assetIPv4
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result)
+	iface = &assetURLWithIPv4Host
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result)
+	iface = &assetIPv6
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result)
+	iface = &assetURLWithIPv6Host
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result)
+	iface = &assetURL
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, true, result) // Since the scope now has a wildcard, this should succeed.
+
+	explicitLevel = 3
+
+	iface = &assetIPv4
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result)
+	iface = &assetURLWithIPv4Host
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result)
+	iface = &assetIPv6
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result)
+	iface = &assetURLWithIPv6Host
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result)
+	iface = &assetURL
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result) // The scope has a wildcard, but in explicitlevel=3 wildcards are ignored. This should fail.
+
+	scope, _ = url.Parse("https://somesubdomain.example.com")
+	scopes = []interface{}{scope}
+
+	iface = &assetIPv4
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result)
+	iface = &assetURLWithIPv4Host
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result)
+	iface = &assetIPv6
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result)
+	iface = &assetURLWithIPv6Host
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result)
+	iface = &assetURL
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, true, result) // The scope is now explicit. This should succeed.
+
+}
+
+func Test_isInscope_IP(t *testing.T) {
+	var result bool
+	var scope net.IP
+	var scopes []interface{}
+	var iface interface{}
+	var explicitLevel int
+
+	assetIPv6 := net.ParseIP("2001:DB8:0000:0000:0000:0000:0000:0001")
+	assetURLWithIPv6Host := URLWithIPAddressHost{RawURL: "https://2001:DB8:0000:0000:0000:0000:0000:0001/path/to/stuff", IPhost: assetIPv6}
+	assetIPv4 := net.ParseIP("192.168.0.1")
+	assetURLWithIPv4Host := URLWithIPAddressHost{RawURL: "https://192.168.0.1/path/to/stuff", IPhost: assetIPv4}
+	pointerToassetURL, _ := url.Parse("https://example.com/path/to/stuff")
+	assetURL := *pointerToassetURL
+
+	for explicitLevel = 1; explicitLevel <= 3; explicitLevel++ {
+		fmt.Println(strconv.Itoa(explicitLevel))
+		scope = net.ParseIP("192.168.0.1")
+		scopes = []interface{}{&scope}
+
+		iface = &assetIPv4
+		result = isInscope(&scopes, &iface, &explicitLevel)
+		equals(t, true, result)
+		iface = &assetURLWithIPv4Host
+		result = isInscope(&scopes, &iface, &explicitLevel)
+		equals(t, true, result)
+		iface = &assetIPv6
+		result = isInscope(&scopes, &iface, &explicitLevel)
+		equals(t, false, result)
+		iface = &assetURLWithIPv6Host
+		result = isInscope(&scopes, &iface, &explicitLevel)
+		equals(t, false, result)
+		iface = &assetURL
+		result = isInscope(&scopes, &iface, &explicitLevel)
+		equals(t, false, result)
+
+		scope = net.ParseIP("192.168.0.2")
+		scopes = []interface{}{&scope}
+
+		iface = &assetIPv4
+		result = isInscope(&scopes, &iface, &explicitLevel)
+		equals(t, false, result)
+		iface = &assetURLWithIPv4Host
+		result = isInscope(&scopes, &iface, &explicitLevel)
+		equals(t, false, result)
+		iface = &assetIPv6
+		result = isInscope(&scopes, &iface, &explicitLevel)
+		equals(t, false, result)
+		iface = &assetURLWithIPv6Host
+		result = isInscope(&scopes, &iface, &explicitLevel)
+		equals(t, false, result)
+		iface = &assetURL
+		result = isInscope(&scopes, &iface, &explicitLevel)
+		equals(t, false, result)
+
+		scope = net.ParseIP("2001:DB8:0000:0000:0000:0000:0000:0001")
+		scopes = []interface{}{&scope}
+
+		iface = &assetIPv4
+		result = isInscope(&scopes, &iface, &explicitLevel)
+		equals(t, false, result)
+		iface = &assetURLWithIPv4Host
+		result = isInscope(&scopes, &iface, &explicitLevel)
+		equals(t, false, result)
+		iface = &assetIPv6
+		result = isInscope(&scopes, &iface, &explicitLevel)
+		equals(t, true, result)
+		iface = &assetURLWithIPv6Host
+		result = isInscope(&scopes, &iface, &explicitLevel)
+		equals(t, true, result)
+		iface = &assetURL
+		result = isInscope(&scopes, &iface, &explicitLevel)
+		equals(t, false, result)
+
+		scope = net.ParseIP("2001:DB9:0000:0000:0000:0000:0000:0001")
+		scopes = []interface{}{&scope}
+
+		iface = &assetIPv4
+		result = isInscope(&scopes, &iface, &explicitLevel)
+		equals(t, false, result)
+		iface = &assetURLWithIPv4Host
+		result = isInscope(&scopes, &iface, &explicitLevel)
+		equals(t, false, result)
+		iface = &assetIPv6
+		result = isInscope(&scopes, &iface, &explicitLevel)
+		equals(t, false, result)
+		iface = &assetURLWithIPv6Host
+		result = isInscope(&scopes, &iface, &explicitLevel)
+		equals(t, false, result)
+		iface = &assetURL
+		result = isInscope(&scopes, &iface, &explicitLevel)
+		equals(t, false, result)
+	}
+
 }
 
 /*
