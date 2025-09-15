@@ -210,7 +210,7 @@ func main() {
 `
 
 	if showVersion {
-		fmt.Print("hacker-scoper: v5.1.2\n")
+		fmt.Print("hacker-scoper: v5.2.0\n")
 		os.Exit(0)
 	}
 
