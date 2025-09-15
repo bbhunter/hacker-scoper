@@ -150,6 +150,9 @@ dev.*.example.com
 FE80::0202:B3FF:FE1E:8330
 ```
 
+### Wildcards vs Regex
+Regex scopes are matched against the entire string that is given as a target, from start to finish, whereas wildcard scopes are only matched against hosts (IPv4s, IPv6s, and URL hosts). Also note that regex scopes aren't affected by --explicit-level settings.
+
 ## :heart: Special thank you
 This project was inspired by the [yeswehack_vdp_finder](https://github.com/yeswehack/yeswehack_vdp_finder)
 
