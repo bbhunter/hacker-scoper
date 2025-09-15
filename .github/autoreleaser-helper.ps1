@@ -8,51 +8,36 @@ Invoke-WebRequest -Uri https://api.github.com/repos/itsignacioportal/hacker-scop
 echo 'Installing jq...'
 choco install jq
 
+echo 'Parsing latest version tag from JSON...'
+$version = type $env:TEMP\releases.json | C:\ProgramData\chocolatey\bin\jq.exe '.tag_name'
+$version = $version -replace '"',''
+
 echo 'Parsing download URL from JSON...'
 $cmdOutput = type $env:TEMP\releases.json | C:\ProgramData\chocolatey\bin\jq.exe '.assets[11].browser_download_url'
 
 echo 'Downloading the windows_32-bit file...'
 $cmdOutput = $cmdOutput -replace '"',''
-Invoke-WebRequest -Uri $cmdOutput -OutFile $env:TEMP\windows_32-bit.tar.gz
+Invoke-WebRequest -Uri $cmdOutput -OutFile choco\hacker-scoper\tools\hacker-scoper_$($version)_windows_32-bit.zip
 
 echo 'Parsing download URL from JSON...'
 $cmdOutput = type $env:TEMP\releases.json | C:\ProgramData\chocolatey\bin\jq.exe '.assets[12].browser_download_url'
 
 echo 'Downloading the windows_64-bit file...'
 $cmdOutput = $cmdOutput -replace '"',''
-Invoke-WebRequest -Uri $cmdOutput -OutFile $env:TEMP\windows_64-bit.tar.gz
+Invoke-WebRequest -Uri $cmdOutput -OutFile choco\hacker-scoper\tools\hacker-scoper_$($version)_windows_64-bit.zip
 
-echo 'Extracting files...'
-cd $env:TEMP
-mkdir windows_32-bit
-cd windows_32-bit
-tar -xvzf ..\windows_32-bit.tar.gz
 
-cd $env:TEMP
-mkdir windows_64-bit
-cd windows_64-bit
-tar -xvzf ..\windows_64-bit.tar.gz
-
-echo 'Parsing latest version tag from JSON...'
-$version = type $env:TEMP\releases.json | C:\ProgramData\chocolatey\bin\jq.exe '.tag_name'
-$version = $version -replace '"',''
-
-echo 'Preparing Chocolatey file...'
-cd $originaldir
-echo $pwd
-tree
+echo 'Preparing Chocolatey package installer...'
 Copy-Item choco\chocolateyinstall_template.ps1 choco\hacker-scoper\tools\chocolateyinstall.ps1
 $filePath = "choco\hacker-scoper\tools\chocolateyinstall.ps1"
 (Get-Content $filePath).Replace("VERSIONHERE",$version) | Set-Content $filePath
 
+echo 'Preparing Chocolatey nuspec file...'
 Copy-Item choco\hacker-scoper_template.nuspec choco\hacker-scoper\hacker-scoper.nuspec
 $filePath = "choco\hacker-scoper\hacker-scoper.nuspec"
 $version = $version -replace 'v',''
 (Get-Content $filePath).Replace("VERSIONHERE",$version) | Set-Content $filePath
 
-echo 'Compressing files...'
-Compress-Archive $env:TEMP\windows_32-bit\hacker-scoper.exe -DestinationPath choco\hacker-scoper\tools\hacker-scoper_$($version)_windows_32-bit.zip
-Compress-Archive $env:TEMP\windows_64-bit\hacker-scoper.exe -DestinationPath choco\hacker-scoper\tools\hacker-scoper_$($version)_windows_64-bit.zip
-
 cd choco\hacker-scoper
-echo $pwd
+echo "We're in '$pwd'"
+tree /F
