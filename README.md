@@ -123,6 +123,8 @@ ads.example.com
 2001:db8::3
 2001:db9:0000:0000:0000:0000:0000:0004
 2001:db9::5
+http://db123.mycompany.ec2.amazonaws.com/path/to/stuff
+http://db123.someothercompany.ec2.amazonaws.com/path/to/stuff
 ```
 
 Custom .inscope file example:
@@ -135,6 +137,7 @@ amzn*.domain.example.com
 FE80:0000:0000:0000:0202:B3FF:FE1E:8329
 FE80::0202:B3FF:FE1E:8329
 2001:DB8::/32
+^\w+:\/\/db[0-9][0-9][0-9]\.mycompany\.ec2\.amazonaws\.com.*$
 ```
 
 Custom .noscope file example:
