@@ -32,6 +32,10 @@ type URLWithIPAddressHost struct {
 	IPhost net.IP
 }
 
+type WildcardScope struct {
+	scope regexp.Regexp
+}
+
 // https://tutorialedge.net/golang/parsing-json-with-golang/
 type Scope struct {
 	Scope      string //either a domain, or a wildcard domain
@@ -862,6 +866,7 @@ func readFileLines(filepath string) ([]string, error) {
 // - *net.IP		(single IP address)
 // - *url.URL 		(valid URL)
 // - *regexp.Regexp (Regex)
+// - *WildcardScope (Wildcard Scope)
 //
 // If isScope is false, ParseLine attempts to parse a string into either:
 // - *net.IP				(single IP address)
@@ -874,33 +879,44 @@ func parseLine(line string, isScope bool) (interface{}, error) {
 	// TODO: Add a --optimize flag that when enabled will save all of the inscope, and noscope scopes in a separate file, with their type already determined, so we don't have to waste time guessing the scope type every time hacker-scoper is run. Maybe in CSV format. We could also use the file last-modified-at metadata to know whether the .inscope and .noscope files were modified. The --optimize flag should only have an effect when hacker-scoper is ran with .inscope and .noscope files, or with the firebounty db.It wouldn't make sense to optimize the input of stdin.
 
 	if isScope {
-		// Try CIDR first (most specific)
-		if _, ipnet, err := net.ParseCIDR(line); err == nil {
-			return ipnet, nil
+		if strings.HasPrefix(line, "^") && strings.HasSuffix(line, "$") {
+			// Attempt to parse the scope as a regex
+			scopeRegex, err := regexp.Compile(line)
+			if err != nil {
+				if chainMode {
+					warning("There was an error parsing the scope \"" + line + "\" as a regex.")
+				}
+				return nil, ErrInvalidFormat
+			} else {
+				return scopeRegex, nil
+			}
+		} else if strings.Contains(line, "*") {
+			// If the line is a scope and contains a wildcard...
+			// Attempt to parse the scope as a regex
+			rawRegex := strings.Replace(line, ".", "\\.", -1)
+			rawRegex = strings.Replace(rawRegex, "*", ".*", -1)
+
+			scopeRegex, err := regexp.Compile(rawRegex)
+			if err != nil {
+				if chainMode {
+					warning("There was an error parsing the scope \"" + line + "\" (converted into \"" + rawRegex + "\") as a regex. This scope was parsed as a regex instead of as a URL because it has 1 or more wildcards.")
+				}
+				return nil, ErrInvalidFormat
+			} else {
+				return &(WildcardScope{scope: *scopeRegex}), nil
+			}
+		} else {
+			// Try to parse as CIDR
+			if _, ipnet, err := net.ParseCIDR(line); err == nil {
+				return ipnet, nil
+			}
 		}
+
 	}
 
 	// Try plain IP
 	if ip := net.ParseIP(line); ip != nil {
 		return &ip, nil
-	}
-
-	// If the line is a scope and contains a wildcard...
-	if isScope && strings.Contains(line, "*") {
-
-		// Attempt to parse the scope as a regex
-		rawRegex := strings.Replace(line, ".", "\\.", -1)
-		rawRegex = strings.Replace(rawRegex, "*", ".*", -1)
-
-		scopeRegex, err := regexp.Compile(rawRegex)
-		if err != nil {
-			if chainMode {
-				warning("There was an error parsing the scope \"" + line + "\" (converted into \"" + rawRegex + "\") as a regex. This scope was parsed as a regex instead of as a URL because it has 1 or more wildcards.")
-			}
-			return nil, ErrInvalidFormat
-		} else {
-			return scopeRegex, nil
-		}
 	}
 
 	// Try URL (with basic validation)
@@ -1052,12 +1068,18 @@ func isInscope(inscopeScopes *[]interface{}, target *interface{}, explicitLevel 
 					result = removePortFromHost(assertedTarget) == assertedScope.Host
 				}
 
-			case *regexp.Regexp:
+			case *WildcardScope:
 				if *explicitLevel != 3 {
-					// If the i scope is a regex...
+					// If the i scope is a Wildcard Scope...
 					//if the current target host matches the regex...
-					result = assertedScope.MatchString(removePortFromHost(assertedTarget))
+					result = (assertedScope.scope).MatchString(removePortFromHost(assertedTarget))
 				}
+
+			case *regexp.Regexp:
+				// If the i scope is a regex...
+				//if the current target matches the regex...
+				result = assertedScope.MatchString(assertedTarget.String())
+
 			}
 			if result {
 				return result

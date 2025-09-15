@@ -177,7 +177,8 @@ func Test_parseLine_Scope_URL_IP_Port_NoScheme_WithPath(t *testing.T) {
 // Try parsing wildcards
 func Test_parseLine_Scope_Wildcard_Start(t *testing.T) {
 	scope := "*.amz.example.com"
-	scopeParsed, _ := regexp.Compile(`.*\.amz\.example\.com`)
+	myregex, _ := regexp.Compile(`.*\.amz\.example\.com`)
+	scopeParsed := &WildcardScope{scope: *myregex}
 	result, _ := parseLine(scope, true)
 	equals(t, scopeParsed, result)
 }
@@ -185,7 +186,8 @@ func Test_parseLine_Scope_Wildcard_Start(t *testing.T) {
 // Try parsing wildcards
 func Test_parseLine_Scope_Wildcard_Middle(t *testing.T) {
 	scope := "database*.internal.example.com"
-	scopeParsed, _ := regexp.Compile(`database.*\.internal\.example\.com`)
+	myregex, _ := regexp.Compile(`database.*\.internal\.example\.com`)
+	scopeParsed := &WildcardScope{scope: *myregex}
 	result, _ := parseLine(scope, true)
 	equals(t, scopeParsed, result)
 }
@@ -193,7 +195,16 @@ func Test_parseLine_Scope_Wildcard_Middle(t *testing.T) {
 // Try parsing wildcards
 func Test_parseLine_Scope_Wildcard_Complex(t *testing.T) {
 	scope := "database*.internal.*.example.com"
-	scopeParsed, _ := regexp.Compile(`database.*\.internal\..*\.example\.com`)
+	myregex, _ := regexp.Compile(`database.*\.internal\..*\.example\.com`)
+	scopeParsed := &WildcardScope{scope: *myregex}
+	result, _ := parseLine(scope, true)
+	equals(t, scopeParsed, result)
+}
+
+// Try parsing regex
+func Test_parseLine_Scope_Regex(t *testing.T) {
+	scope := `^\w+:\/\/db[0-9][0-9][0-9]\.mycompany\.ec2\.amazonaws\.com.*$`
+	scopeParsed, _ := regexp.Compile(scope)
 	result, _ := parseLine(scope, true)
 	equals(t, scopeParsed, result)
 }
@@ -671,7 +682,8 @@ func Test_isInscope_URL(t *testing.T) {
 	result = isInscope(&scopes, &iface, &explicitLevel)
 	equals(t, false, result) // Since the scope is still just "https://example.com", this should fail
 
-	regexScope := regexp.MustCompile(`.*\.example.com`)
+	myregex := regexp.MustCompile(`.*\.example.com`)
+	regexScope := &WildcardScope{scope: *myregex}
 	scopes = []interface{}{regexScope}
 
 	iface = &assetIPv4
@@ -726,6 +738,49 @@ func Test_isInscope_URL(t *testing.T) {
 	iface = &assetURL
 	result = isInscope(&scopes, &iface, &explicitLevel)
 	equals(t, true, result) // The scope is now explicit. This should succeed.
+
+	scopeRegex := regexp.MustCompile(`^\w+:\/\/db[0-9][0-9][0-9]\.mycompany\.ec2\.amazonaws\.com.*$`)
+	scopes = []interface{}{scopeRegex}
+	pointerToassetURL, _ = url.Parse("http://db123.mycompany.ec2.amazonaws.com/path/to/stuff")
+	assetURL = *pointerToassetURL
+	for explicitLevel = 1; explicitLevel < 3; explicitLevel++ {
+		iface = &assetIPv4
+		result = isInscope(&scopes, &iface, &explicitLevel)
+		equals(t, false, result)
+		iface = &assetURLWithIPv4Host
+		result = isInscope(&scopes, &iface, &explicitLevel)
+		equals(t, false, result)
+		iface = &assetIPv6
+		result = isInscope(&scopes, &iface, &explicitLevel)
+		equals(t, false, result)
+		iface = &assetURLWithIPv6Host
+		result = isInscope(&scopes, &iface, &explicitLevel)
+		equals(t, false, result)
+		iface = &assetURL
+		result = isInscope(&scopes, &iface, &explicitLevel)
+		equals(t, true, result) // The scope is now explicit. But regex scopes aren't disabled by --explicit-level=3. This should succeed.
+
+	}
+
+	pointerToassetURL, _ = url.Parse("http://db123.someothercompany.ec2.amazonaws.com/path/to/stuff")
+	assetURL = *pointerToassetURL
+	for explicitLevel = 1; explicitLevel < 3; explicitLevel++ {
+		iface = &assetIPv4
+		result = isInscope(&scopes, &iface, &explicitLevel)
+		equals(t, false, result)
+		iface = &assetURLWithIPv4Host
+		result = isInscope(&scopes, &iface, &explicitLevel)
+		equals(t, false, result)
+		iface = &assetIPv6
+		result = isInscope(&scopes, &iface, &explicitLevel)
+		equals(t, false, result)
+		iface = &assetURLWithIPv6Host
+		result = isInscope(&scopes, &iface, &explicitLevel)
+		equals(t, false, result)
+		iface = &assetURL
+		result = isInscope(&scopes, &iface, &explicitLevel)
+		equals(t, false, result) // The scope is now explicit. This should fail.
+	}
 
 }
 
