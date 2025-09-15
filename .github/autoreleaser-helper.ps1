@@ -11,27 +11,27 @@ choco install jq
 echo 'Parsing download URL from JSON...'
 $cmdOutput = type $env:TEMP\releases.json | C:\ProgramData\chocolatey\bin\jq.exe '.assets[11].browser_download_url'
 
-echo 'Downloading the windows_386 file...'
+echo 'Downloading the windows_32-bit file...'
 $cmdOutput = $cmdOutput -replace '"',''
-Invoke-WebRequest -Uri $cmdOutput -OutFile $env:TEMP\windows_386.tar.gz
+Invoke-WebRequest -Uri $cmdOutput -OutFile $env:TEMP\windows_32-bit.tar.gz
 
 echo 'Parsing download URL from JSON...'
 $cmdOutput = type $env:TEMP\releases.json | C:\ProgramData\chocolatey\bin\jq.exe '.assets[12].browser_download_url'
 
-echo 'Downloading the windows_amd64 file...'
+echo 'Downloading the windows_64-bit file...'
 $cmdOutput = $cmdOutput -replace '"',''
-Invoke-WebRequest -Uri $cmdOutput -OutFile $env:TEMP\windows_amd64.tar.gz
+Invoke-WebRequest -Uri $cmdOutput -OutFile $env:TEMP\windows_64-bit.tar.gz
 
 echo 'Extracting files...'
 cd $env:TEMP
-mkdir windows_386
-cd windows_386
-tar -xvzf ..\windows_386.tar.gz
+mkdir windows_32-bit
+cd windows_32-bit
+tar -xvzf ..\windows_32-bit.tar.gz
 
 cd $env:TEMP
-mkdir windows_amd64
-cd windows_amd64
-tar -xvzf ..\windows_amd64.tar.gz
+mkdir windows_64-bit
+cd windows_64-bit
+tar -xvzf ..\windows_64-bit.tar.gz
 
 echo 'Parsing latest version tag from JSON...'
 $version = type $env:TEMP\releases.json | C:\ProgramData\chocolatey\bin\jq.exe '.tag_name'
@@ -51,8 +51,8 @@ $version = $version -replace 'v',''
 (Get-Content $filePath).Replace("VERSIONHERE",$version) | Set-Content $filePath
 
 echo 'Compressing files...'
-Compress-Archive $env:TEMP\windows_386\hacker-scoper.exe -DestinationPath choco\hacker-scoper\tools\hacker-scoper_$($version)_windows_386.zip
-Compress-Archive $env:TEMP\windows_amd64\hacker-scoper.exe -DestinationPath choco\hacker-scoper\tools\hacker-scoper_$($version)_windows_amd64.zip
+Compress-Archive $env:TEMP\windows_32-bit\hacker-scoper.exe -DestinationPath choco\hacker-scoper\tools\hacker-scoper_$($version)_windows_32-bit.zip
+Compress-Archive $env:TEMP\windows_64-bit\hacker-scoper.exe -DestinationPath choco\hacker-scoper\tools\hacker-scoper_$($version)_windows_64-bit.zip
 
 cd choco\hacker-scoper
 echo $pwd
