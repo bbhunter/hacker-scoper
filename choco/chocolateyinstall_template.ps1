@@ -4,8 +4,8 @@ $toolsDir   = "$(Split-Path -parent $MyInvocation.MyCommand.Definition)"
 $packageArgs = @{
   packageName   = $env:ChocolateyPackageName
   destination   = "$toolsDir"
-  file          = "$toolsDir\hacker-scoper_VERSIONHERE_windows_386.zip"
-  file64        = "$toolsDir\hacker-scoper_VERSIONHERE_windows_amd64.zip"
+  file          = "$toolsDir\hacker-scoper_VERSIONHERE_windows_32-bit.zip"
+  file64        = "$toolsDir\hacker-scoper_VERSIONHERE_windows_64-bit.zip"
 }
 
 Get-ChocolateyUnzip @packageArgs
