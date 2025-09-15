@@ -846,7 +846,8 @@ func isAndroidPackageName(rawScope *string) bool {
 // All lines are trimmed, and empty lines are removed
 // All lines beginning with '#' or '//' are considered comments and are removed
 func readFileLines(filepath string) ([]string, error) {
-	data, err := os.ReadFile(filepath) // Reads the whole file into memory
+	// Reads the whole file into memory
+	data, err := os.ReadFile(filepath) // #nosec G304 -- Intended functionality.
 	if err != nil {
 		return nil, err
 	}
