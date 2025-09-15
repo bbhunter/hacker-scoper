@@ -32,6 +32,10 @@ type URLWithIPAddressHost struct {
 	IPhost net.IP
 }
 
+type WildcardScope struct {
+	scope regexp.Regexp
+}
+
 // https://tutorialedge.net/golang/parsing-json-with-golang/
 type Scope struct {
 	Scope      string //either a domain, or a wildcard domain
@@ -206,7 +210,7 @@ func main() {
 `
 
 	if showVersion {
-		fmt.Print("hacker-scoper: v5.1.2\n")
+		fmt.Print("hacker-scoper: v5.2.0\n")
 		os.Exit(0)
 	}
 
@@ -410,7 +414,7 @@ func main() {
 			//appearently "while" doesn't exist in Go. It has been replaced by "for"
 			for userPickedInvalidChoice {
 				//For every matchingCompanyList item...
-				for i := 0; i < len(matchingCompanyList)-1; i++ {
+				for i := range matchingCompanyList {
 					//Print it
 					fmt.Println("    " + strconv.Itoa(i) + " - " + matchingCompanyList[i].companyName)
 				}
@@ -441,7 +445,7 @@ func main() {
 			//If the user chose to "COMBINE ALL"...
 			if userChoiceAsInt == len(matchingCompanyList) {
 				//for every company that matched the company query...
-				for i := 0; i < len(matchingCompanyList); i++ {
+				for i := range matchingCompanyList {
 
 					//Load the matchingCompanyList 2D slice, and convert the first member from string to integer, and save the company index
 					companyIndex := matchingCompanyList[i].companyIndex
@@ -524,24 +528,6 @@ func main() {
 	}
 
 	inscopeAssets, unsureAssets := parseAllScopes(&inscopeScopes, &noscopeScopes, &targets, &explicitLevel)
-	//OLD DEF: func parseScopesWrapper(scope string, explicitLevel int, targetsListFile *os.File, outofScopesListFilepath string, firebountyOutOfScopes []Scope
-	//NEW DEF: func parseScopesWrapper(inscopeScopes *[]interface{}, explicitLevel *int, targetsInput *[]string, noscopeScopes *[]interface{}) ([]string, []string, error) {
-
-	/*
-		if includeUnsure {
-			//If a URL is in inscopeURLs and unsureURLs, remove it from unsureURLs
-		unsureURLsloopstart:
-			for i := 0; i < len(unsureURLs); i++ {
-				for j := 0; j < len(inscopeURLs); j++ {
-					if unsureURLs[i] == inscopeURLs[j] {
-						unsureURLs = append(unsureURLs[:i], unsureURLs[i+1:]...)
-						goto unsureURLsloopstart
-					}
-				}
-			}
-
-		}
-	*/
 
 	inscopeAssetsAsStrings := interfaceToStrings(&inscopeAssets, false)
 	unsureAssetsAsStrings := interfaceToStrings(&unsureAssets, false)
@@ -559,7 +545,7 @@ func main() {
 
 		if includeUnsure {
 			//for each unsureURLs item...
-			for i := 0; i < len(unsureAssetsAsStrings); i++ {
+			for i := range unsureAssetsAsStrings {
 				if !chainMode {
 					infoWarning("UNSURE: ", unsureAssetsAsStrings[i])
 				} else {
@@ -643,8 +629,7 @@ func parseAllScopes(inscopeScopes *[]interface{}, noscopeScopes *[]interface{}, 
 	// This function is where we'll implement the --include-unsure logic
 
 	// For each target...
-	for i := 0; i < len(*targets); i++ {
-		target := (*targets)[i]
+	for _, target := range *targets {
 		targetIsOutOfScope := isOutOfScope(noscopeScopes, &target, explicitLevel)
 		if !targetIsOutOfScope {
 			// We only need to check if the target is inscope if it isn't out of scope.
@@ -677,7 +662,7 @@ func infoGood(prefix string, message string) {
 }
 
 func infoWarning(prefix string, message string) {
-	fmt.Print(string(colorYellow) + "[+] " + prefix + string(colorReset) + message + "\n")
+	fmt.Print(string(colorYellow) + "[-] " + prefix + string(colorReset) + message + "\n")
 }
 
 func removePortFromHost(myurl *url.URL) string {
@@ -789,6 +774,7 @@ func getCompanyScopes(firebountyJSON *Firebounty, companyIndex *int) (inscopeLin
 
 			rawInScope := firebountyJSON.Pgms[*companyIndex].Scopes.In_scopes[inscopeCounter].Scope
 
+			// TODO: Optimize this. It's very inneficient to be parsing this line twice. parseLine is already called within isAndroidPackageName, so we shouldn't call it again, that's redundant.
 			if !isAndroidPackageName(&rawInScope) {
 				inscopeLines = append(inscopeLines, rawInScope)
 			}
@@ -829,7 +815,7 @@ func isAndroidPackageName(rawScope *string) bool {
 	// TODO: Split parseLine into 3 functions, so we can directly try to parse the rawScope as a URL rather than wasting CPU cycles trying to parse CIDR Range -> IP Address -> URL.
 	inscope, err := parseLine(*rawScope, true)
 
-	if err != nil {
+	if err != nil && !chainMode {
 		warning("Error parsing \"" + *rawScope + "\".")
 	} else if _, inscopeIsURL := inscope.(*url.URL); inscopeIsURL {
 		// If the type of inscope is *url.URL ...
@@ -860,25 +846,19 @@ func isAndroidPackageName(rawScope *string) bool {
 // All lines are trimmed, and empty lines are removed
 // All lines beginning with '#' or '//' are considered comments and are removed
 func readFileLines(filepath string) ([]string, error) {
-	file, err := os.Open(filepath) // #nosec G304 -- filepath is a CLI argument specified by the user running the program. It is not unsafe to allow them to open any file in their own system.
+	// Reads the whole file into memory
+	data, err := os.ReadFile(filepath) // #nosec G304 -- Intended functionality.
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
-
+	rawLines := strings.Split(string(data), "\n")
 	var lines []string
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
+	for _, line := range rawLines {
+		line = strings.TrimSpace(line)
 		if line != "" && !strings.HasPrefix(line, "#") && !strings.HasPrefix(line, "//") {
 			lines = append(lines, line)
 		}
 	}
-
-	if err := scanner.Err(); err != nil {
-		return nil, err
-	}
-
 	return lines, nil
 }
 
@@ -887,6 +867,7 @@ func readFileLines(filepath string) ([]string, error) {
 // - *net.IP		(single IP address)
 // - *url.URL 		(valid URL)
 // - *regexp.Regexp (Regex)
+// - *WildcardScope (Wildcard Scope)
 //
 // If isScope is false, ParseLine attempts to parse a string into either:
 // - *net.IP				(single IP address)
@@ -899,33 +880,44 @@ func parseLine(line string, isScope bool) (interface{}, error) {
 	// TODO: Add a --optimize flag that when enabled will save all of the inscope, and noscope scopes in a separate file, with their type already determined, so we don't have to waste time guessing the scope type every time hacker-scoper is run. Maybe in CSV format. We could also use the file last-modified-at metadata to know whether the .inscope and .noscope files were modified. The --optimize flag should only have an effect when hacker-scoper is ran with .inscope and .noscope files, or with the firebounty db.It wouldn't make sense to optimize the input of stdin.
 
 	if isScope {
-		// Try CIDR first (most specific)
-		if _, ipnet, err := net.ParseCIDR(line); err == nil {
-			return ipnet, nil
+		if strings.HasPrefix(line, "^") && strings.HasSuffix(line, "$") {
+			// Attempt to parse the scope as a regex
+			scopeRegex, err := regexp.Compile(line)
+			if err != nil {
+				if chainMode {
+					warning("There was an error parsing the scope \"" + line + "\" as a regex.")
+				}
+				return nil, ErrInvalidFormat
+			} else {
+				return scopeRegex, nil
+			}
+		} else if strings.Contains(line, "*") {
+			// If the line is a scope and contains a wildcard...
+			// Attempt to parse the scope as a regex
+			rawRegex := strings.Replace(line, ".", "\\.", -1)
+			rawRegex = strings.Replace(rawRegex, "*", ".*", -1)
+
+			scopeRegex, err := regexp.Compile(rawRegex)
+			if err != nil {
+				if chainMode {
+					warning("There was an error parsing the scope \"" + line + "\" (converted into \"" + rawRegex + "\") as a regex. This scope was parsed as a regex instead of as a URL because it has 1 or more wildcards.")
+				}
+				return nil, ErrInvalidFormat
+			} else {
+				return &(WildcardScope{scope: *scopeRegex}), nil
+			}
+		} else {
+			// Try to parse as CIDR
+			if _, ipnet, err := net.ParseCIDR(line); err == nil {
+				return ipnet, nil
+			}
 		}
+
 	}
 
 	// Try plain IP
 	if ip := net.ParseIP(line); ip != nil {
 		return &ip, nil
-	}
-
-	// If the line is a scope and contains a wildcard...
-	if isScope && strings.Contains(line, "*") {
-
-		// Attempt to parse the scope as a regex
-		rawRegex := strings.Replace(line, ".", "\\.", -1)
-		rawRegex = strings.Replace(rawRegex, "*", ".*", -1)
-
-		scopeRegex, err := regexp.Compile(rawRegex)
-		if err != nil {
-			if chainMode {
-				warning("There was an error parsing the scope \"" + line + "\" (converted into \"" + rawRegex + "\") as a regex. This scope was parsed as a regex instead of as a URL because it has 1 or more wildcards.")
-			}
-			return nil, ErrInvalidFormat
-		} else {
-			return scopeRegex, nil
-		}
 	}
 
 	// Try URL (with basic validation)
@@ -980,7 +972,9 @@ func parseAllLines(lines []string, isScopes bool) ([]interface{}, error) {
 	for i, line := range lines {
 		parsedTemp, err := parseLine(line, isScopes)
 		if err != nil {
-			warning("Unable to parse line number " + strconv.Itoa(i) + " as a scope: \"" + line + "\"")
+			if !chainMode {
+				warning("Unable to parse line number " + strconv.Itoa(i) + " as a scope: \"" + line + "\"")
+			}
 		} else {
 			parsed = append(parsed, parsedTemp)
 		}
@@ -1000,7 +994,7 @@ func interfaceToStrings(interfaces *[]interface{}, isScope bool) (strings []stri
 
 	if isScope {
 		// For each interface in interfaces...
-		for i := 0; i < len(*interfaces); i++ {
+		for i := range *interfaces {
 			switch v := (*interfaces)[i].(type) {
 			case *net.IPNet:
 				// If it's a CIDR network...
@@ -1023,7 +1017,7 @@ func interfaceToStrings(interfaces *[]interface{}, isScope bool) (strings []stri
 	} else {
 		// If the given interfaces are not scopes, they are targets. Targets are never CIDR ranges, or regular expressions.
 		// For each interface in interfaces...
-		for i := 0; i < len(*interfaces); i++ {
+		for i := range *interfaces {
 			switch assertedInterface := (*interfaces)[i].(type) {
 			case *net.IP:
 				// If it's an IP Address
@@ -1059,7 +1053,7 @@ func isInscope(inscopeScopes *[]interface{}, target *interface{}, explicitLevel 
 
 	// If the target is a URL...
 	case *url.URL:
-		for i := 0; i < len(*inscopeScopes); i++ {
+		for i := range *inscopeScopes {
 			// We're only interested in comparing URL targets against URL scopes, and regex.
 			switch assertedScope := (*inscopeScopes)[i].(type) {
 			// If the i scope is a URL...
@@ -1071,19 +1065,22 @@ func isInscope(inscopeScopes *[]interface{}, target *interface{}, explicitLevel 
 					//we DON'T do it by splitting on dots and matching, because that would cause errors with domains that have two top-level-domains (gov.br for example)
 					result = strings.HasSuffix(removePortFromHost(assertedTarget), assertedScope.Host)
 
-				// case 2:
-				// --explicit-level=2 is handled in the case the current scope is a regex. This is because all scopes that have wildcards in them, are automatically turned into regular expressions.
-
-				case 3:
+				case 2, 3:
 					result = removePortFromHost(assertedTarget) == assertedScope.Host
 				}
 
-			case *regexp.Regexp:
+			case *WildcardScope:
 				if *explicitLevel != 3 {
-					// If the i scope is a regex...
+					// If the i scope is a Wildcard Scope...
 					//if the current target host matches the regex...
-					result = assertedScope.MatchString(removePortFromHost(assertedTarget))
+					result = (assertedScope.scope).MatchString(removePortFromHost(assertedTarget))
 				}
+
+			case *regexp.Regexp:
+				// If the i scope is a regex...
+				//if the current target matches the regex...
+				result = assertedScope.MatchString(assertedTarget.String())
+
 			}
 			if result {
 				return result
@@ -1097,7 +1094,7 @@ func isInscope(inscopeScopes *[]interface{}, target *interface{}, explicitLevel 
 func isInscopeIP(targetIP *net.IP, inscopeScopes *[]interface{}, explicitLevel *int) (result bool) {
 	if *explicitLevel == 3 {
 		// For each scope in inscopeScopes...
-		for i := 0; i < len(*inscopeScopes); i++ {
+		for i := range *inscopeScopes {
 			// We're only interested in comparing IP targets against IP addresses.
 			// CIDR scopes are disabled in --explicit-level=3
 			switch assertedScope := (*inscopeScopes)[i].(type) {
@@ -1115,7 +1112,7 @@ func isInscopeIP(targetIP *net.IP, inscopeScopes *[]interface{}, explicitLevel *
 		return false
 	} else {
 		// For each scope in inscopeScopes...
-		for i := 0; i < len(*inscopeScopes); i++ {
+		for i := range *inscopeScopes {
 			// We're only interested in comparing IP targets against CIDR networks and IP addresses.
 			switch assertedScope := (*inscopeScopes)[i].(type) {
 			// If the i scope is a CIDR network...

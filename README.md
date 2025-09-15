@@ -5,7 +5,7 @@
   <a href="https://go.dev"><img alt="Golang icon" src="https://img.shields.io/badge/Built_with-GoLang-00acd7?logo=go"></a>
   <a href="https://github.com/ItsIgnacioPortal/Hacker-Scoper/releases"><img alt="Link to the latest version" src="https://img.shields.io/github/v/release/itsignacioportal/hacker-scoper"></a>
   <a href="LICENSE.md"><img alt="Badge depicting the proyect license, the aGPLv3" src="https://img.shields.io/badge/License-aGPLv3-663366?logo=GNU"></a>
-  <a href="https://www.bestpractices.dev/projects/10594"><img alt="OpenSSF best practices badge." src="https://www.bestpractices.dev/projects/10594/badge"></a> 
+  <a href="https://www.bestpractices.dev/projects/10594"><img alt="OpenSSF best practices badge." src="https://www.bestpractices.dev/projects/10594/badge?c"></a> 
 </p>
 
 
@@ -26,6 +26,8 @@ This project is developed and maintained by [ItsIgnacioPortal](https://github.co
 - **Wildcard support**: Hacker-Scoper supports wildcards in any part of your scope, allowing you to use filters like `amzn*.example.com` and `dev.*.example.com`.
 
 - **CIDR Range support**: You can use CIDR ranges in your scopes to filter IP addresses, for example: `10.49.20.0/24` for IPv4 and `2001:DB8::/32` for IPv6.
+
+- **Regex support**: You can use Regular Expressions (regex) as scopes to filter any assets. All regex scopes _must_ start with `^` and end with `$`. For example: `^\w+:\/\/db[0-9][0-9][0-9]\.mycompany\.ec2\.amazonaws\.com.*$`
 
 - **Automation friendly**: Use the `-ch`/`--chain-mode` argument to disable the fancy text decorations and output only the in-scope assets. Hacker-scoper also supports input from stdin.
 
