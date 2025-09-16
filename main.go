@@ -1036,7 +1036,11 @@ func interfaceToStrings(interfaces *[]interface{}, isScope bool) (strings []stri
 				//strings = append(strings, (*interfaces)[i].(*net.IP).String())
 				strings = append(strings, assertedInterface.String())
 			case *URLWithIPAddressHost:
-				strings = append(strings, assertedInterface.RawURL)
+				if outputDomainsOnly {
+					strings = append(strings, assertedInterface.IPhost.String())
+				} else {
+					strings = append(strings, assertedInterface.RawURL)
+				}
 			case *url.URL:
 				// If it's a URL...
 				//strings = append(strings, (*interfaces)[i].(*url.URL).String())
