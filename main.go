@@ -578,13 +578,13 @@ func main() {
 			if !quietMode {
 				if isUnsure && includeUnsure {
 					if !chainMode {
-						infoGood("IN-SCOPE: ", target)
+						infoWarning("UNSURE: ", target)
 					} else {
 						fmt.Println(target)
 					}
 				} else {
 					if !chainMode {
-						infoWarning("UNSURE: ", target)
+						infoGood("IN-SCOPE: ", target)
 					} else {
 						fmt.Println(target)
 					}
