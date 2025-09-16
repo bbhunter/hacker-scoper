@@ -11,4 +11,3 @@
 	- [ ] yeswehack.com
 	- [ ] bugbounty.jp
 	- [ ] federacy.com
-- [ ] Add **Define multiple inscopes sources and combine them** (such as combining the detected company scope with the manual scopes from .inscope files)
