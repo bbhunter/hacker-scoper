@@ -877,6 +877,103 @@ func Test_isInscope_IP(t *testing.T) {
 		equals(t, false, result)
 	}
 
+	// Test nmap-like input (last octet)
+	nmapScope, err := parseLine("192.168.0.1-4", true)
+	if err != nil {
+		panic(err)
+	}
+	scopes = []interface{}{nmapScope}
+
+	explicitLevel = 1
+
+	iface = &assetIPv4
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, true, result)
+	assetIPv4 = net.ParseIP("192.168.0.2")
+	iface = &assetIPv4
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, true, result)
+	assetIPv4 = net.ParseIP("192.168.0.3")
+	iface = &assetIPv4
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, true, result)
+	assetIPv4 = net.ParseIP("192.168.0.5")
+	iface = &assetIPv4
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result)
+
+	// Test nmap-like input (middle octet)
+	nmapScope, err = parseLine("192.168.0-4.1", true)
+	if err != nil {
+		panic(err)
+	}
+	scopes = []interface{}{nmapScope}
+
+	explicitLevel = 1
+
+	assetIPv4 = net.ParseIP("192.168.0.1")
+	iface = &assetIPv4
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, true, result)
+	assetIPv4 = net.ParseIP("192.168.2.1")
+	iface = &assetIPv4
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, true, result)
+	assetIPv4 = net.ParseIP("192.168.3.1")
+	iface = &assetIPv4
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, true, result)
+	assetIPv4 = net.ParseIP("192.168.1.2")
+	iface = &assetIPv4
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result)
+	assetIPv4 = net.ParseIP("192.168.2.2")
+	iface = &assetIPv4
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result)
+
+	// Test nmap-like input (middle octet, with commas)
+	nmapScope, err = parseLine("192.168.0-4,6.1", true)
+	if err != nil {
+		panic(err)
+	}
+	scopes = []interface{}{nmapScope}
+
+	explicitLevel = 1
+
+	assetIPv4 = net.ParseIP("192.168.0.1")
+	iface = &assetIPv4
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, true, result)
+	assetIPv4 = net.ParseIP("192.168.2.1")
+	iface = &assetIPv4
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, true, result)
+	assetIPv4 = net.ParseIP("192.168.3.1")
+	iface = &assetIPv4
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, true, result)
+	assetIPv4 = net.ParseIP("192.168.1.2")
+	iface = &assetIPv4
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result)
+	assetIPv4 = net.ParseIP("192.168.2.2")
+	iface = &assetIPv4
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result)
+	assetIPv4 = net.ParseIP("192.168.4.1")
+	iface = &assetIPv4
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, true, result)
+	assetIPv4 = net.ParseIP("192.168.5.1")
+	iface = &assetIPv4
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, false, result)
+	assetIPv4 = net.ParseIP("192.168.6.1")
+	iface = &assetIPv4
+	result = isInscope(&scopes, &iface, &explicitLevel)
+	equals(t, true, result)
+
 }
 
 /*

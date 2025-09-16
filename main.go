@@ -36,6 +36,11 @@ type WildcardScope struct {
 	scope regexp.Regexp
 }
 
+type NmapIPRange struct {
+	Octets [4][]uint8 // Each octet can be a list of allowed values
+	Raw    string     // Original string for reference
+}
+
 // https://tutorialedge.net/golang/parsing-json-with-golang/
 type Scope struct {
 	Scope      string //either a domain, or a wildcard domain
@@ -906,6 +911,13 @@ func parseLine(line string, isScope bool) (interface{}, error) {
 			} else {
 				return &(WildcardScope{scope: *scopeRegex}), nil
 			}
+		} else if isNmapIPRange(line) {
+			// Nmap octet range detection: must look like a.b.c.d with at least one range/comma
+			nmapRange, err := parseNmapIPRange(line)
+			if err != nil {
+				return nil, ErrInvalidFormat
+			}
+			return nmapRange, nil
 		} else {
 			// Try to parse as CIDR
 			if _, ipnet, err := net.ParseCIDR(line); err == nil {
@@ -1124,6 +1136,27 @@ func isInscopeIP(targetIP *net.IP, inscopeScopes *[]interface{}, explicitLevel *
 				result = assertedScope.Equal(*targetIP)
 
 				// TODO: Add a regex case for comparing against target IP addresses
+
+			case *NmapIPRange:
+				ip := (*targetIP).To4()
+				if ip == nil {
+					continue
+				}
+				result = true
+				for i := range 4 {
+					found := false
+					for _, v := range assertedScope.Octets[i] {
+						if ip[i] == v {
+							found = true
+							break
+						}
+					}
+					if !found {
+						result = false
+						break
+					}
+				}
+
 			}
 			if result {
 				return result
@@ -1131,4 +1164,70 @@ func isInscopeIP(targetIP *net.IP, inscopeScopes *[]interface{}, explicitLevel *
 		}
 		return false
 	}
+}
+
+func isNmapIPRange(line string) bool {
+	// Quick heuristic: must have 3 dots and at least one '-' or ','
+	if strings.Count(line, ".") != 3 {
+		return false
+	}
+	return strings.ContainsAny(line, "-,")
+}
+
+func parseNmapIPRange(line string) (*NmapIPRange, error) {
+	parts := strings.Split(line, ".")
+	if len(parts) != 4 {
+		return nil, errors.New("invalid Nmap IP range format")
+	}
+	var octets [4][]uint8
+	for i, part := range parts {
+		vals, err := parseNmapOctet(part)
+		if err != nil {
+			return nil, err
+		}
+		octets[i] = vals
+	}
+	return &NmapIPRange{Octets: octets, Raw: line}, nil
+}
+
+func parseNmapOctet(part string) ([]uint8, error) {
+	var vals []uint8
+	for _, seg := range strings.Split(part, ",") {
+		seg = strings.TrimSpace(seg)
+		if seg == "-" {
+			seg = "0-255"
+		}
+		if strings.Contains(seg, "-") {
+			bounds := strings.SplitN(seg, "-", 2)
+			low := uint8(0)
+			high := uint8(255)
+			if bounds[0] != "" {
+				l, err := strconv.Atoi(bounds[0])
+				if err != nil || l < 0 || l > 255 {
+					return nil, errors.New("invalid octet range")
+				}
+				low = uint8(l)
+			}
+			if bounds[1] != "" {
+				h, err := strconv.Atoi(bounds[1])
+				if err != nil || h < 0 || h > 255 {
+					return nil, errors.New("invalid octet range")
+				}
+				high = uint8(h)
+			}
+			if low > high {
+				return nil, errors.New("octet range low > high")
+			}
+			for v := low; v <= high; v++ {
+				vals = append(vals, v)
+			}
+		} else {
+			v, err := strconv.Atoi(seg)
+			if err != nil || v < 0 || v > 255 {
+				return nil, errors.New("invalid octet value")
+			}
+			vals = append(vals, uint8(v))
+		}
+	}
+	return vals, nil
 }
