@@ -402,7 +402,8 @@ func main() {
 		}
 		if len(matchingCompanyList) == 0 && !chainMode {
 			fmt.Println(string(colorRed) + "[-] 0 (lowercase'd) company names contained the string \"" + company + "\"" + string(colorReset))
-			fmt.Println(string(colorRed) + "[-] Consider either of these options:")
+			fmt.Println(string(colorRed) + "[-] If the company's bug bounty program is private, consider using rescope to download the scopes: https://github.com/root4loot/rescope")
+			fmt.Println(string(colorRed) + "[-] If the company's bug bounty program is public, consider either of these options:")
 			fmt.Println(string(colorRed) + "\t - Doing a manual search at https://firebounty.com")
 			fmt.Println(string(colorRed) + "\t - Loading the scopes manually into '.inscope' and '.noscope' files.")
 			fmt.Println(string(colorRed) + "\t - Loading the scopes manually into custom files, specified with the --inscope-file and --outofscope-file arguments.")
