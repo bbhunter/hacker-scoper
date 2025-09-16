@@ -224,6 +224,11 @@ func main() {
 		os.Exit(2)
 	}
 
+	// This avoids having to check both chainMode and quietMode in the future. Instead we can just check chainMode.
+	if quietMode && !chainMode {
+		chainMode = quietMode
+	}
+
 	if firebountyJSONPath == "" {
 		firebountyJSONPath = getFirebountyJSONPath()
 		if firebountyJSONPath == "" && !chainMode {
