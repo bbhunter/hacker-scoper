@@ -1005,58 +1005,6 @@ func parseAllLines(lines []string, isScopes bool) ([]interface{}, error) {
 
 }
 
-/*
-// This function is needed to convert all of the arrays of interfaces into arrays of strings, so that they can be easily processed at the end of the program.
-func interfaceToString(inputInterface *interface{}, isScope bool) (resultString string) {
-
-	if isScope {
-		// For each interface in interfaces...
-		switch v := (*inputInterface).(type) {
-		case *net.IPNet:
-			// If it's a CIDR network...
-			//strings = append(strings, (*interfaces)[i].(*net.IPNet).String())
-			return v.String()
-		case *net.IP:
-			// If it's an IP Address
-			//strings = append(strings, (*interfaces)[i].(*net.IP).String())
-			return v.String()
-		case *url.URL:
-			// If it's a URL...
-			//strings = append(strings, (*interfaces)[i].(*url.URL).String())
-			return v.String()
-		case *regexp.Regexp:
-			// If it's a regex...
-			//strings = append(strings, (*interfaces)[i].(*regexp.Regexp).String())
-			return v.String()
-		}
-	} else {
-		// If the given interfaces are not scopes, they are targets. Targets are never CIDR ranges, or regular expressions.
-		switch assertedInterface := (*inputInterface).(type) {
-		case *net.IP:
-			// If it's an IP Address
-			//strings = append(strings, (*interfaces)[i].(*net.IP).String())
-			return assertedInterface.String()
-		case *URLWithIPAddressHost:
-			if outputDomainsOnly {
-				return assertedInterface.IPhost.String()
-			} else {
-				return assertedInterface.RawURL
-			}
-		case *url.URL:
-			// If it's a URL...
-			//strings = append(strings, (*interfaces)[i].(*url.URL).String())
-			if outputDomainsOnly {
-				return assertedInterface.Host
-			} else {
-				return assertedInterface.String()
-			}
-
-		}
-	}
-	panic(errors.New("an unknown type was fed to interfaceToString"))
-}
-*/
-
 func isInscope(inscopeScopes *[]interface{}, target *interface{}, explicitLevel *int) (result bool) {
 
 	// Here we use a switch-case on the type of target. So target is processed differently depending on which variable type it is.
