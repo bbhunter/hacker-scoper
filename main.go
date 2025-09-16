@@ -28,7 +28,7 @@ var firebountyJSONPath string
 var ErrInvalidFormat = errors.New("invalid format: not IP, CIDR, or URL")
 
 type URLWithIPAddressHost struct {
-	RawURL string
+	Url    *url.URL
 	IPhost net.IP
 }
 
@@ -526,75 +526,81 @@ func main() {
 		crash("Unable to parse any noscope entries as scopes", err)
 	}
 
-	// Parse all targetsInput lines
-	targets, err := parseAllLines(targetsInput, false)
-	if err != nil {
-		crash("Unable to parse any target entries as valid assets.", err)
-	}
+	// Variables for writing the output to a file if necessary.
+	var writer *bufio.Writer
+	var f *os.File
+	// Helper variable
+	var target string
 
-	inscopeAssets, unsureAssets := parseAllScopes(&inscopeScopes, &noscopeScopes, &targets, &explicitLevel)
-
-	inscopeAssetsAsStrings := interfaceToStrings(&inscopeAssets, false)
-	unsureAssetsAsStrings := interfaceToStrings(&unsureAssets, false)
-
-	if !quietMode {
-		//Yes, I could've made this into a function instead of copying the same chunk of code, but it just doesn't make any sense as a function IMO
-		//For each item in inscopeAssetsAsStrings...
-		for i := range inscopeAssetsAsStrings {
-			if !chainMode {
-				infoGood("IN-SCOPE: ", inscopeAssetsAsStrings[i])
-			} else {
-				fmt.Println(inscopeAssetsAsStrings[i])
-			}
-		}
-
-		if includeUnsure {
-			//for each unsureURLs item...
-			for i := range unsureAssetsAsStrings {
-				if !chainMode {
-					infoWarning("UNSURE: ", unsureAssetsAsStrings[i])
-				} else {
-					fmt.Println(unsureAssetsAsStrings[i])
-				}
-			}
-		}
-	}
-
-	//Add the URLs into the output file, if the flag has been set
 	if inscopeOutputFile != "" {
-
 		f, err := os.OpenFile(inscopeOutputFile, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600) // #nosec G304 -- inscopeOutputFile is a CLI argument specified by the user running the program. It is not unsafe to allow them to open any file in their own system.
 		if err != nil {
 			crash("Unable to read output file", err)
 		}
 
 		// Use bufio.Writer for efficient disk writes
-		writer := bufio.NewWriter(f)
-		for i := range inscopeAssetsAsStrings {
-			_, err = writer.WriteString(inscopeAssetsAsStrings[i] + "\n")
-			if err != nil {
-				crash("Unable to write to output file", err)
-			}
+		writer = bufio.NewWriter(f)
+	}
+
+	// Parse all targetsInput lines
+	for i := range targetsInput {
+		parsedTarget, err := parseLine(targetsInput[i], false)
+		if err != nil {
+			warning("Unable to parse the string '" + targetsInput[i] + "' as a target.")
+			continue
 		}
 
-		//Process unsure assets
-		if includeUnsure && unsureAssetsAsStrings != nil {
-			//for each unsure asset...
-			for i := range unsureAssetsAsStrings {
-				//write it to the output file
-				_, err = writer.WriteString(unsureAssetsAsStrings[i] + "\n")
+		// "isInsideScope" can't be called "isInscope" because we already have a function with that name.
+		isInsideScope, isUnsure := parseScopes(&inscopeScopes, &noscopeScopes, &parsedTarget, &explicitLevel)
+
+		if isInsideScope {
+			if !quietMode {
+				if outputDomainsOnly {
+					switch assertedTarget := parsedTarget.(type) {
+					case *url.URL:
+						target = removePortFromHost(assertedTarget)
+					case *URLWithIPAddressHost:
+						target = removePortFromHost(assertedTarget.Url)
+					default:
+						// This should handle the "*net.IP" case.
+						target = targetsInput[i]
+					}
+				} else {
+					target = targetsInput[i]
+				}
+				if isUnsure && includeUnsure {
+					if !chainMode {
+						infoGood("IN-SCOPE: ", target)
+					} else {
+						fmt.Println(target)
+					}
+				} else {
+					if !chainMode {
+						infoWarning("UNSURE: ", target)
+					} else {
+						fmt.Println(target)
+					}
+				}
+			}
+
+			if inscopeOutputFile != "" {
+				_, err = writer.WriteString(target + "\n")
 				if err != nil {
 					crash("Unable to write to output file", err)
 				}
 			}
-		}
 
+		}
+	}
+
+	if inscopeOutputFile != "" {
 		// Flush any buffered data to disk
 		writer.Flush() // #nosec G104 -- No need to handle any writer errors, since we already crash upon encountering any writer error.
 
 		//Close the output file
 		f.Close() // #nosec G104 -- There's no harm done if we're unable to close the output file, since we're already at the end of the program.
 	}
+
 	StopBenchmark()
 	cleanup()
 
@@ -630,25 +636,23 @@ func updateFireBountyJSON() {
 
 }
 
-func parseAllScopes(inscopeScopes *[]interface{}, noscopeScopes *[]interface{}, targets *[]interface{}, explicitLevel *int) (inscopeAssets []interface{}, unsureAssets []interface{}) {
+func parseScopes(inscopeScopes *[]interface{}, noscopeScopes *[]interface{}, target *interface{}, explicitLevel *int) (isInsideScope bool, isUnsure bool) {
 	// This function is where we'll implement the --include-unsure logic
 
-	// For each target...
-	for _, target := range *targets {
-		targetIsOutOfScope := isOutOfScope(noscopeScopes, &target, explicitLevel)
-		if !targetIsOutOfScope {
-			// We only need to check if the target is inscope if it isn't out of scope.
-			targetIsInscope := isInscope(inscopeScopes, &target, explicitLevel)
-			if targetIsInscope {
-				inscopeAssets = append(inscopeAssets, target)
-			} else if includeUnsure && !targetIsInscope {
-				unsureAssets = append(unsureAssets, target)
-			}
+	targetIsOutOfScope := isOutOfScope(noscopeScopes, target, explicitLevel)
+	if !targetIsOutOfScope {
+		// We only need to check if the target is inscope if it isn't out of scope.
+		targetIsInscope := isInscope(inscopeScopes, target, explicitLevel)
+		if targetIsInscope {
+			return true, false
+		} else if includeUnsure && !targetIsInscope {
+			return true, true
+		} else {
+			return false, false
 		}
-
+	} else {
+		return false, false
 	}
-
-	return inscopeAssets, unsureAssets
 }
 
 func crash(message string, err error) {
@@ -955,7 +959,7 @@ func parseLine(line string, isScope bool) (interface{}, error) {
 		// scopes will never be URLs with IP hostnames. It doesn't make sense to check for IP hostnames in URLs for scopes
 		// Try plain IP
 		if ip := net.ParseIP(removePortFromHost(parsedURL)); ip != nil {
-			myURLWithIPHostname := URLWithIPAddressHost{RawURL: line, IPhost: ip}
+			myURLWithIPHostname := URLWithIPAddressHost{Url: parsedURL, IPhost: ip}
 			return &myURLWithIPHostname, nil
 		} else {
 			return parsedURL, nil
@@ -1001,60 +1005,57 @@ func parseAllLines(lines []string, isScopes bool) ([]interface{}, error) {
 
 }
 
+/*
 // This function is needed to convert all of the arrays of interfaces into arrays of strings, so that they can be easily processed at the end of the program.
-func interfaceToStrings(interfaces *[]interface{}, isScope bool) (strings []string) {
+func interfaceToString(inputInterface *interface{}, isScope bool) (resultString string) {
 
 	if isScope {
 		// For each interface in interfaces...
-		for i := range *interfaces {
-			switch v := (*interfaces)[i].(type) {
-			case *net.IPNet:
-				// If it's a CIDR network...
-				//strings = append(strings, (*interfaces)[i].(*net.IPNet).String())
-				strings = append(strings, v.String())
-			case *net.IP:
-				// If it's an IP Address
-				//strings = append(strings, (*interfaces)[i].(*net.IP).String())
-				strings = append(strings, v.String())
-			case *url.URL:
-				// If it's a URL...
-				//strings = append(strings, (*interfaces)[i].(*url.URL).String())
-				strings = append(strings, v.String())
-			case *regexp.Regexp:
-				// If it's a regex...
-				//strings = append(strings, (*interfaces)[i].(*regexp.Regexp).String())
-				strings = append(strings, v.String())
-			}
+		switch v := (*inputInterface).(type) {
+		case *net.IPNet:
+			// If it's a CIDR network...
+			//strings = append(strings, (*interfaces)[i].(*net.IPNet).String())
+			return v.String()
+		case *net.IP:
+			// If it's an IP Address
+			//strings = append(strings, (*interfaces)[i].(*net.IP).String())
+			return v.String()
+		case *url.URL:
+			// If it's a URL...
+			//strings = append(strings, (*interfaces)[i].(*url.URL).String())
+			return v.String()
+		case *regexp.Regexp:
+			// If it's a regex...
+			//strings = append(strings, (*interfaces)[i].(*regexp.Regexp).String())
+			return v.String()
 		}
 	} else {
 		// If the given interfaces are not scopes, they are targets. Targets are never CIDR ranges, or regular expressions.
-		// For each interface in interfaces...
-		for i := range *interfaces {
-			switch assertedInterface := (*interfaces)[i].(type) {
-			case *net.IP:
-				// If it's an IP Address
-				//strings = append(strings, (*interfaces)[i].(*net.IP).String())
-				strings = append(strings, assertedInterface.String())
-			case *URLWithIPAddressHost:
-				if outputDomainsOnly {
-					strings = append(strings, assertedInterface.IPhost.String())
-				} else {
-					strings = append(strings, assertedInterface.RawURL)
-				}
-			case *url.URL:
-				// If it's a URL...
-				//strings = append(strings, (*interfaces)[i].(*url.URL).String())
-				if outputDomainsOnly {
-					strings = append(strings, assertedInterface.Host)
-				} else {
-					strings = append(strings, assertedInterface.String())
-				}
-
+		switch assertedInterface := (*inputInterface).(type) {
+		case *net.IP:
+			// If it's an IP Address
+			//strings = append(strings, (*interfaces)[i].(*net.IP).String())
+			return assertedInterface.String()
+		case *URLWithIPAddressHost:
+			if outputDomainsOnly {
+				return assertedInterface.IPhost.String()
+			} else {
+				return assertedInterface.RawURL
 			}
+		case *url.URL:
+			// If it's a URL...
+			//strings = append(strings, (*interfaces)[i].(*url.URL).String())
+			if outputDomainsOnly {
+				return assertedInterface.Host
+			} else {
+				return assertedInterface.String()
+			}
+
 		}
 	}
-	return strings
+	panic(errors.New("an unknown type was fed to interfaceToString"))
 }
+*/
 
 func isInscope(inscopeScopes *[]interface{}, target *interface{}, explicitLevel *int) (result bool) {
 
