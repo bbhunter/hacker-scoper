@@ -251,7 +251,7 @@ func main() {
 
 	firebountyJSONPath = firebountyJSONPath + firebountyJSONFilename
 
-	if !chainMode && !quietMode {
+	if !chainMode {
 		fmt.Println(banner)
 	}
 
