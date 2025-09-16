@@ -131,14 +131,26 @@ http://db123.someothercompany.ec2.amazonaws.com/path/to/stuff
 
 Custom .inscope file example:
 ```javascript
+# This is a comment!
+# Wildcards
 *.example.com
 *.sub.domain.example.com
 amzn*.domain.example.com
+
+# IPv4 address
 192.168.2.10
+
+# IPv4 CIDR range
 192.168.1.0/24
+
+# IPv6 addresses
 FE80:0000:0000:0000:0202:B3FF:FE1E:8329
 FE80::0202:B3FF:FE1E:8329
+
+# IPv6 CIDR range
 2001:DB8::/32
+
+# Regex
 ^\w+:\/\/db[0-9][0-9][0-9]\.mycompany\.ec2\.amazonaws\.com.*$
 
 # Nmap octet ranges
