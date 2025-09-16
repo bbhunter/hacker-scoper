@@ -28,12 +28,17 @@ var firebountyJSONPath string
 var ErrInvalidFormat = errors.New("invalid format: not IP, CIDR, or URL")
 
 type URLWithIPAddressHost struct {
-	RawURL string
+	Url    *url.URL
 	IPhost net.IP
 }
 
 type WildcardScope struct {
 	scope regexp.Regexp
+}
+
+type NmapIPRange struct {
+	Octets [4][]uint8 // Each octet can be a list of allowed values
+	Raw    string     // Original string for reference
 }
 
 // https://tutorialedge.net/golang/parsing-json-with-golang/
@@ -210,13 +215,18 @@ func main() {
 `
 
 	if showVersion {
-		fmt.Print("hacker-scoper: v5.2.0\n")
+		fmt.Print("hacker-scoper: v6.0.0\n")
 		os.Exit(0)
 	}
 
 	if quietMode && inscopeOutputFile == "" {
 		warning("--quiet was set, but no output file was specified. Program will do nothing.")
 		os.Exit(2)
+	}
+
+	// This avoids having to check both chainMode and quietMode in the future. Instead we can just check chainMode.
+	if quietMode && !chainMode {
+		chainMode = quietMode
 	}
 
 	if firebountyJSONPath == "" {
@@ -241,7 +251,7 @@ func main() {
 
 	firebountyJSONPath = firebountyJSONPath + firebountyJSONFilename
 
-	if !chainMode && !quietMode {
+	if !chainMode {
 		fmt.Println(banner)
 	}
 
@@ -397,7 +407,8 @@ func main() {
 		}
 		if len(matchingCompanyList) == 0 && !chainMode {
 			fmt.Println(string(colorRed) + "[-] 0 (lowercase'd) company names contained the string \"" + company + "\"" + string(colorReset))
-			fmt.Println(string(colorRed) + "[-] Consider either of these options:")
+			fmt.Println(string(colorRed) + "[-] If the company's bug bounty program is private, consider using rescope to download the scopes: https://github.com/root4loot/rescope")
+			fmt.Println(string(colorRed) + "[-] If the company's bug bounty program is public, consider either of these options:")
 			fmt.Println(string(colorRed) + "\t - Doing a manual search at https://firebounty.com")
 			fmt.Println(string(colorRed) + "\t - Loading the scopes manually into '.inscope' and '.noscope' files.")
 			fmt.Println(string(colorRed) + "\t - Loading the scopes manually into custom files, specified with the --inscope-file and --outofscope-file arguments.")
@@ -470,7 +481,9 @@ func main() {
 
 		} else {
 			//Only 1 company matched the query
-			fmt.Print("[+] Search for \"" + company + "\" matched the company " + string(colorGreen) + firebountyJSON.Pgms[matchingCompanyList[0].companyIndex].Name + string(colorReset) + "!\n")
+			if !chainMode {
+				fmt.Print("[+] Search for \"" + company + "\" matched the company " + string(colorGreen) + firebountyJSON.Pgms[matchingCompanyList[0].companyIndex].Name + string(colorReset) + "!\n")
+			}
 			inscopeLines, noscopeLines, err = getCompanyScopes(&firebountyJSON, &matchingCompanyList[0].companyIndex)
 			if err != nil {
 				crash("Error parsing the company "+company, err)
@@ -521,75 +534,81 @@ func main() {
 		crash("Unable to parse any noscope entries as scopes", err)
 	}
 
-	// Parse all targetsInput lines
-	targets, err := parseAllLines(targetsInput, false)
-	if err != nil {
-		crash("Unable to parse any target entries as valid assets.", err)
-	}
+	// Variables for writing the output to a file if necessary.
+	var writer *bufio.Writer
+	var f *os.File
+	// Helper variable
+	var target string
 
-	inscopeAssets, unsureAssets := parseAllScopes(&inscopeScopes, &noscopeScopes, &targets, &explicitLevel)
-
-	inscopeAssetsAsStrings := interfaceToStrings(&inscopeAssets, false)
-	unsureAssetsAsStrings := interfaceToStrings(&unsureAssets, false)
-
-	if !quietMode {
-		//Yes, I could've made this into a function instead of copying the same chunk of code, but it just doesn't make any sense as a function IMO
-		//For each item in inscopeAssetsAsStrings...
-		for i := range inscopeAssetsAsStrings {
-			if !chainMode {
-				infoGood("IN-SCOPE: ", inscopeAssetsAsStrings[i])
-			} else {
-				fmt.Println(inscopeAssetsAsStrings[i])
-			}
-		}
-
-		if includeUnsure {
-			//for each unsureURLs item...
-			for i := range unsureAssetsAsStrings {
-				if !chainMode {
-					infoWarning("UNSURE: ", unsureAssetsAsStrings[i])
-				} else {
-					fmt.Println(unsureAssetsAsStrings[i])
-				}
-			}
-		}
-	}
-
-	//Add the URLs into the output file, if the flag has been set
 	if inscopeOutputFile != "" {
-
 		f, err := os.OpenFile(inscopeOutputFile, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600) // #nosec G304 -- inscopeOutputFile is a CLI argument specified by the user running the program. It is not unsafe to allow them to open any file in their own system.
 		if err != nil {
 			crash("Unable to read output file", err)
 		}
 
 		// Use bufio.Writer for efficient disk writes
-		writer := bufio.NewWriter(f)
-		for i := range inscopeAssetsAsStrings {
-			_, err = writer.WriteString(inscopeAssetsAsStrings[i] + "\n")
-			if err != nil {
-				crash("Unable to write to output file", err)
-			}
+		writer = bufio.NewWriter(f)
+	}
+
+	// Parse all targetsInput lines
+	for i := range targetsInput {
+		parsedTarget, err := parseLine(targetsInput[i], false)
+		if err != nil {
+			warning("Unable to parse the string '" + targetsInput[i] + "' as a target.")
+			continue
 		}
 
-		//Process unsure assets
-		if includeUnsure && unsureAssetsAsStrings != nil {
-			//for each unsure asset...
-			for i := range unsureAssetsAsStrings {
-				//write it to the output file
-				_, err = writer.WriteString(unsureAssetsAsStrings[i] + "\n")
+		// "isInsideScope" can't be called "isInscope" because we already have a function with that name.
+		isInsideScope, isUnsure := parseScopes(&inscopeScopes, &noscopeScopes, &parsedTarget, &explicitLevel)
+
+		if isInsideScope {
+			if outputDomainsOnly {
+				switch assertedTarget := parsedTarget.(type) {
+				case *url.URL:
+					target = removePortFromHost(assertedTarget)
+				case *URLWithIPAddressHost:
+					target = removePortFromHost(assertedTarget.Url)
+				default:
+					// This should handle the "*net.IP" case.
+					target = targetsInput[i]
+				}
+			} else {
+				target = targetsInput[i]
+			}
+			if !quietMode {
+				if isUnsure && includeUnsure {
+					if !chainMode {
+						infoWarning("UNSURE: ", target)
+					} else {
+						fmt.Println(target)
+					}
+				} else {
+					if !chainMode {
+						infoGood("IN-SCOPE: ", target)
+					} else {
+						fmt.Println(target)
+					}
+				}
+			}
+
+			if inscopeOutputFile != "" {
+				_, err = writer.WriteString(target + "\n")
 				if err != nil {
 					crash("Unable to write to output file", err)
 				}
 			}
-		}
 
+		}
+	}
+
+	if inscopeOutputFile != "" {
 		// Flush any buffered data to disk
 		writer.Flush() // #nosec G104 -- No need to handle any writer errors, since we already crash upon encountering any writer error.
 
 		//Close the output file
 		f.Close() // #nosec G104 -- There's no harm done if we're unable to close the output file, since we're already at the end of the program.
 	}
+
 	StopBenchmark()
 	cleanup()
 
@@ -625,25 +644,23 @@ func updateFireBountyJSON() {
 
 }
 
-func parseAllScopes(inscopeScopes *[]interface{}, noscopeScopes *[]interface{}, targets *[]interface{}, explicitLevel *int) (inscopeAssets []interface{}, unsureAssets []interface{}) {
+func parseScopes(inscopeScopes *[]interface{}, noscopeScopes *[]interface{}, target *interface{}, explicitLevel *int) (isInsideScope bool, isUnsure bool) {
 	// This function is where we'll implement the --include-unsure logic
 
-	// For each target...
-	for _, target := range *targets {
-		targetIsOutOfScope := isOutOfScope(noscopeScopes, &target, explicitLevel)
-		if !targetIsOutOfScope {
-			// We only need to check if the target is inscope if it isn't out of scope.
-			targetIsInscope := isInscope(inscopeScopes, &target, explicitLevel)
-			if targetIsInscope {
-				inscopeAssets = append(inscopeAssets, target)
-			} else if includeUnsure && !targetIsInscope {
-				unsureAssets = append(unsureAssets, target)
-			}
+	targetIsOutOfScope := isOutOfScope(noscopeScopes, target, explicitLevel)
+	if !targetIsOutOfScope {
+		// We only need to check if the target is inscope if it isn't out of scope.
+		targetIsInscope := isInscope(inscopeScopes, target, explicitLevel)
+		if targetIsInscope {
+			return true, false
+		} else if includeUnsure && !targetIsInscope {
+			return true, true
+		} else {
+			return false, false
 		}
-
+	} else {
+		return false, false
 	}
-
-	return inscopeAssets, unsureAssets
 }
 
 func crash(message string, err error) {
@@ -906,6 +923,13 @@ func parseLine(line string, isScope bool) (interface{}, error) {
 			} else {
 				return &(WildcardScope{scope: *scopeRegex}), nil
 			}
+		} else if isNmapIPRange(line) {
+			// Nmap octet range detection: must look like a.b.c.d with at least one range/comma
+			nmapRange, err := parseNmapIPRange(line)
+			if err != nil {
+				return nil, ErrInvalidFormat
+			}
+			return nmapRange, nil
 		} else {
 			// Try to parse as CIDR
 			if _, ipnet, err := net.ParseCIDR(line); err == nil {
@@ -943,7 +967,7 @@ func parseLine(line string, isScope bool) (interface{}, error) {
 		// scopes will never be URLs with IP hostnames. It doesn't make sense to check for IP hostnames in URLs for scopes
 		// Try plain IP
 		if ip := net.ParseIP(removePortFromHost(parsedURL)); ip != nil {
-			myURLWithIPHostname := URLWithIPAddressHost{RawURL: line, IPhost: ip}
+			myURLWithIPHostname := URLWithIPAddressHost{Url: parsedURL, IPhost: ip}
 			return &myURLWithIPHostname, nil
 		} else {
 			return parsedURL, nil
@@ -953,7 +977,7 @@ func parseLine(line string, isScope bool) (interface{}, error) {
 			return parsedURL, nil
 		} else {
 			if !chainMode {
-				warning("The text \"" + line + "\" was given as a scope, but it contains the path \"" + parsedURL.Path + "\". In order to properly match paths in your scope you have to use wildcards. This scope has been ignored.")
+				warning("The text \"" + line + "\" was given as a scope, but it contains the path \"" + parsedURL.Path + "\". In order to properly match paths in your scope you have to use regex. This scope has been ignored.")
 			}
 			return nil, ErrInvalidFormat
 		}
@@ -987,57 +1011,6 @@ func parseAllLines(lines []string, isScopes bool) ([]interface{}, error) {
 		return parsed, nil
 	}
 
-}
-
-// This function is needed to convert all of the arrays of interfaces into arrays of strings, so that they can be easily processed at the end of the program.
-func interfaceToStrings(interfaces *[]interface{}, isScope bool) (strings []string) {
-
-	if isScope {
-		// For each interface in interfaces...
-		for i := range *interfaces {
-			switch v := (*interfaces)[i].(type) {
-			case *net.IPNet:
-				// If it's a CIDR network...
-				//strings = append(strings, (*interfaces)[i].(*net.IPNet).String())
-				strings = append(strings, v.String())
-			case *net.IP:
-				// If it's an IP Address
-				//strings = append(strings, (*interfaces)[i].(*net.IP).String())
-				strings = append(strings, v.String())
-			case *url.URL:
-				// If it's a URL...
-				//strings = append(strings, (*interfaces)[i].(*url.URL).String())
-				strings = append(strings, v.String())
-			case *regexp.Regexp:
-				// If it's a regex...
-				//strings = append(strings, (*interfaces)[i].(*regexp.Regexp).String())
-				strings = append(strings, v.String())
-			}
-		}
-	} else {
-		// If the given interfaces are not scopes, they are targets. Targets are never CIDR ranges, or regular expressions.
-		// For each interface in interfaces...
-		for i := range *interfaces {
-			switch assertedInterface := (*interfaces)[i].(type) {
-			case *net.IP:
-				// If it's an IP Address
-				//strings = append(strings, (*interfaces)[i].(*net.IP).String())
-				strings = append(strings, assertedInterface.String())
-			case *URLWithIPAddressHost:
-				strings = append(strings, assertedInterface.RawURL)
-			case *url.URL:
-				// If it's a URL...
-				//strings = append(strings, (*interfaces)[i].(*url.URL).String())
-				if outputDomainsOnly {
-					strings = append(strings, assertedInterface.Host)
-				} else {
-					strings = append(strings, assertedInterface.String())
-				}
-
-			}
-		}
-	}
-	return strings
 }
 
 func isInscope(inscopeScopes *[]interface{}, target *interface{}, explicitLevel *int) (result bool) {
@@ -1124,6 +1097,27 @@ func isInscopeIP(targetIP *net.IP, inscopeScopes *[]interface{}, explicitLevel *
 				result = assertedScope.Equal(*targetIP)
 
 				// TODO: Add a regex case for comparing against target IP addresses
+
+			case *NmapIPRange:
+				ip := (*targetIP).To4()
+				if ip == nil {
+					continue
+				}
+				result = true
+				for i := range 4 {
+					found := false
+					for _, v := range assertedScope.Octets[i] {
+						if ip[i] == v {
+							found = true
+							break
+						}
+					}
+					if !found {
+						result = false
+						break
+					}
+				}
+
 			}
 			if result {
 				return result
@@ -1131,4 +1125,70 @@ func isInscopeIP(targetIP *net.IP, inscopeScopes *[]interface{}, explicitLevel *
 		}
 		return false
 	}
+}
+
+func isNmapIPRange(line string) bool {
+	// Quick heuristic: must have 3 dots and at least one '-' or ','
+	if strings.Count(line, ".") != 3 {
+		return false
+	}
+	return strings.ContainsAny(line, "-,")
+}
+
+func parseNmapIPRange(line string) (*NmapIPRange, error) {
+	parts := strings.Split(line, ".")
+	if len(parts) != 4 {
+		return nil, errors.New("invalid Nmap IP range format")
+	}
+	var octets [4][]uint8
+	for i, part := range parts {
+		vals, err := parseNmapOctet(part)
+		if err != nil {
+			return nil, err
+		}
+		octets[i] = vals
+	}
+	return &NmapIPRange{Octets: octets, Raw: line}, nil
+}
+
+func parseNmapOctet(part string) ([]uint8, error) {
+	var vals []uint8
+	for _, seg := range strings.Split(part, ",") {
+		seg = strings.TrimSpace(seg)
+		if seg == "-" {
+			seg = "0-255"
+		}
+		if strings.Contains(seg, "-") {
+			bounds := strings.SplitN(seg, "-", 2)
+			low := uint8(0)
+			high := uint8(255)
+			if bounds[0] != "" {
+				l, err := strconv.Atoi(bounds[0])
+				if err != nil || l < 0 || l > 255 {
+					return nil, errors.New("invalid octet range")
+				}
+				low = uint8(l)
+			}
+			if bounds[1] != "" {
+				h, err := strconv.Atoi(bounds[1])
+				if err != nil || h < 0 || h > 255 {
+					return nil, errors.New("invalid octet range")
+				}
+				high = uint8(h)
+			}
+			if low > high {
+				return nil, errors.New("octet range low > high")
+			}
+			for v := low; v <= high; v++ {
+				vals = append(vals, v)
+			}
+		} else {
+			v, err := strconv.Atoi(seg)
+			if err != nil || v < 0 || v > 255 {
+				return nil, errors.New("invalid octet value")
+			}
+			vals = append(vals, uint8(v))
+		}
+	}
+	return vals, nil
 }

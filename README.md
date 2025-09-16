@@ -29,6 +29,8 @@ This project is developed and maintained by [ItsIgnacioPortal](https://github.co
 
 - **Regex support**: You can use Regular Expressions (regex) as scopes to filter any assets. All regex scopes _must_ start with `^` and end with `$`. For example: `^\w+:\/\/db[0-9][0-9][0-9]\.mycompany\.ec2\.amazonaws\.com.*$`
 
+- **Nmap octet ranges support**: Just like nmap, you may specify IPv4 scopes using octet ranges, like for example: `192.168.1-3.1`. That example would match the IPs `192.168.1.1`, `192.168.2.1` and `192.168.3.1`. You can also specify a comma-separated list of numbers for each octet, for example: `192.168.1-3,5.1`, which would match the IPs: `192.168.1.1`, `192.168.2.1`, `192.168.3.1` and `192.168.5.1`.
+
 - **Automation friendly**: Use the `-ch`/`--chain-mode` argument to disable the fancy text decorations and output only the in-scope assets. Hacker-scoper also supports input from stdin.
 
 - **Compatible**: Hacker-Scoper is compatible with Windows, Linux and MacOS in all architectures.
@@ -129,15 +131,32 @@ http://db123.someothercompany.ec2.amazonaws.com/path/to/stuff
 
 Custom .inscope file example:
 ```javascript
+# This is a comment!
+# Wildcards
 *.example.com
 *.sub.domain.example.com
 amzn*.domain.example.com
+
+# IPv4 address
 192.168.2.10
+
+# IPv4 CIDR range
 192.168.1.0/24
+
+# IPv6 addresses
 FE80:0000:0000:0000:0202:B3FF:FE1E:8329
 FE80::0202:B3FF:FE1E:8329
+
+# IPv6 CIDR range
 2001:DB8::/32
+
+# Regex
 ^\w+:\/\/db[0-9][0-9][0-9]\.mycompany\.ec2\.amazonaws\.com.*$
+
+# Nmap octet ranges
+192.168.100-104.1
+192.168.200.0-255
+192.168.105-107,109.1
 ```
 
 Custom .noscope file example:
