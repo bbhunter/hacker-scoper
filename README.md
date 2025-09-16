@@ -140,6 +140,11 @@ FE80:0000:0000:0000:0202:B3FF:FE1E:8329
 FE80::0202:B3FF:FE1E:8329
 2001:DB8::/32
 ^\w+:\/\/db[0-9][0-9][0-9]\.mycompany\.ec2\.amazonaws\.com.*$
+
+# Nmap octet ranges
+192.168.100-104.1
+192.168.200.0-255
+192.168.105-107,109.1
 ```
 
 Custom .noscope file example:
