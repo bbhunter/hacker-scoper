@@ -555,20 +555,20 @@ func main() {
 		isInsideScope, isUnsure := parseScopes(&inscopeScopes, &noscopeScopes, &parsedTarget, &explicitLevel)
 
 		if isInsideScope {
-			if !quietMode {
-				if outputDomainsOnly {
-					switch assertedTarget := parsedTarget.(type) {
-					case *url.URL:
-						target = removePortFromHost(assertedTarget)
-					case *URLWithIPAddressHost:
-						target = removePortFromHost(assertedTarget.Url)
-					default:
-						// This should handle the "*net.IP" case.
-						target = targetsInput[i]
-					}
-				} else {
+			if outputDomainsOnly {
+				switch assertedTarget := parsedTarget.(type) {
+				case *url.URL:
+					target = removePortFromHost(assertedTarget)
+				case *URLWithIPAddressHost:
+					target = removePortFromHost(assertedTarget.Url)
+				default:
+					// This should handle the "*net.IP" case.
 					target = targetsInput[i]
 				}
+			} else {
+				target = targetsInput[i]
+			}
+			if !quietMode {
 				if isUnsure && includeUnsure {
 					if !chainMode {
 						infoGood("IN-SCOPE: ", target)
