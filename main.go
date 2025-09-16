@@ -965,7 +965,7 @@ func parseLine(line string, isScope bool) (interface{}, error) {
 			return parsedURL, nil
 		} else {
 			if !chainMode {
-				warning("The text \"" + line + "\" was given as a scope, but it contains the path \"" + parsedURL.Path + "\". In order to properly match paths in your scope you have to use wildcards. This scope has been ignored.")
+				warning("The text \"" + line + "\" was given as a scope, but it contains the path \"" + parsedURL.Path + "\". In order to properly match paths in your scope you have to use regex. This scope has been ignored.")
 			}
 			return nil, ErrInvalidFormat
 		}
