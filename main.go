@@ -1075,8 +1075,6 @@ func isInscopeIP(targetIP *net.IP, inscopeScopes *[]interface{}, explicitLevel *
 			// If the i scope is an IP Address...
 			case *net.IP:
 				result = assertedScope.Equal(*targetIP)
-
-				// TODO: Add a regex case for comparing against target IP addresses
 			}
 			if result {
 				return result
@@ -1095,8 +1093,6 @@ func isInscopeIP(targetIP *net.IP, inscopeScopes *[]interface{}, explicitLevel *
 			// If the i scope is an IP Address...
 			case *net.IP:
 				result = assertedScope.Equal(*targetIP)
-
-				// TODO: Add a regex case for comparing against target IP addresses
 
 			case *NmapIPRange:
 				ip := (*targetIP).To4()
