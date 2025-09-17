@@ -96,7 +96,6 @@ func main() {
 	var quietMode bool
 	var showVersion bool
 	var company string
-	// TODO: Replace the flag library with something that allows us to read and store explicit level straight into a uint8 variable. This doesn't need to be a full 32-bit int.
 	// TODO: Add a separate --explicit-level flag for noscope. So we can have inscopeExplicitLevel, and noscope ExplicitLevel. Customization ftw!
 	var explicitLevel int //should only be [0], 1, or 2
 	var scopesListFilepath string
