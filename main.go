@@ -75,9 +75,8 @@ type firebountySearchMatch struct {
 }
 
 var chainMode bool
-var targetsListFilepath string
+var usedstdin bool
 var targetsListFile *os.File
-var includeUnsure bool
 
 const colorReset = "\033[0m"
 const colorYellow = "\033[33m"
@@ -85,13 +84,14 @@ const colorRed = "\033[38;2;255;0;0m"
 const colorGreen = "\033[38;2;37;255;36m"
 const colorBlue = "\033[38;2;0;204;255m"
 
-var usedstdin bool
-var inscopeOutputFile string
-var outputDomainsOnly bool
-
 func main() {
 
 	StartBenchmark()
+
+	var targetsListFilepath string
+	var includeUnsure bool
+	var inscopeOutputFile string
+	var outputDomainsOnly bool
 
 	var quietMode bool
 	var showVersion bool
@@ -558,7 +558,7 @@ func main() {
 		}
 
 		// "isInsideScope" can't be called "isInscope" because we already have a function with that name.
-		isInsideScope, isUnsure := parseScopes(&inscopeScopes, &noscopeScopes, &parsedTarget, &explicitLevel)
+		isInsideScope, isUnsure := parseScopes(&inscopeScopes, &noscopeScopes, &parsedTarget, &explicitLevel, includeUnsure)
 
 		if isInsideScope {
 			if outputDomainsOnly {
@@ -643,7 +643,7 @@ func updateFireBountyJSON() {
 
 }
 
-func parseScopes(inscopeScopes *[]interface{}, noscopeScopes *[]interface{}, target *interface{}, explicitLevel *int) (isInsideScope bool, isUnsure bool) {
+func parseScopes(inscopeScopes *[]interface{}, noscopeScopes *[]interface{}, target *interface{}, explicitLevel *int, includeUnsure bool) (isInsideScope bool, isUnsure bool) {
 	// This function is where we'll implement the --include-unsure logic
 
 	targetIsOutOfScope := isOutOfScope(noscopeScopes, target, explicitLevel)
