@@ -106,7 +106,7 @@ Usage: hacker-scoper --file /path/to/targets [--company company | --inscope-file
 | -iu | --include-unsure |  Include "unsure" assets in the output. An unsure asset is an asset that's not in scope, but is also not out of scope. Very probably unrelated to the bug bounty program. |
 | -o | --output |  Save the inscope assets to a file |
 |    | --quiet | Disable command-line output. |
-| -ho | --hostnames-only |  Output only hostnames instead of the full URLs |
+| -ho | --hostnames-only | Output only hostnames instead of the full URLs |
 | --version |  | Show the installed version |
 |_______________|___________________| _____________________________________ |
 
