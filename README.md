@@ -100,7 +100,7 @@ Usage: hacker-scoper --file /path/to/targets [--company company | --inscope-file
 | -f | --file |  Path to your file containing URLs/domains/IPs |
 | -ins | --inscope-file |  Path to a custom plaintext file containing scopes |
 | -oos | --outofscope-file |  Path to a custom plaintext file containing scopes exclusions |
-| -e | --explicit-level int |  How explicit we expect the scopes to be:    <br> 1 (default): Include subdomains in the scope even if there's not a wildcard in the scope    <br> 2: Include subdomains in the scope only if there's a wildcard in the scope    <br> 3: Include subdomains/IPs in the scope only if they are explicitly within the scope. CIDR ranges and wildcards are disabled. |
+| -e | --explicit-level int |  How explicit we expect the scopes to be:    <br> 1 (default): When handling URLs/domains, include subdomains in the scope even if there's not a wildcard in the scope.    <br> 2: When handling URLs/domains, include subdomains in the scope only if there's a wildcard in the scope.    <br> 3: Include subdomains/IPs in the scope only if they are explicitly within the scope. CIDR ranges and wildcards are disabled. |
 | -ch | --chain-mode |  In "chain-mode" we only output the important information. No decorations. Default: false |
 | --database |  | Custom path to the cached firebounty database |
 | -iu | --include-unsure |  Include "unsure" assets in the output. An unsure asset is an asset that's not in scope, but is also not out of scope. Very probably unrelated to the bug bounty program. |

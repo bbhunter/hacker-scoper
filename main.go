@@ -136,10 +136,10 @@ func main() {
       Path to a custom plaintext file containing scopes exclusions
 
   -e, --explicit-level int
-      How explicit we expect the scopes to be:
-        1 (default): Include subdomains in the scope even if there's not a wildcard in the scope.
-        2: Include subdomains in the scope only if there's a wildcard in the scope.
-        3: Include subdomains/IPs in the scope only if they are explicitly within the scope. CIDR ranges and wildcards are disabled
+      How explicit we expect the scopes to be:    
+        1 (default): When handling URLs/domains, include subdomains in the scope even if there's not a wildcard in the scope.    
+        2: When handling URLs/domains, include subdomains in the scope only if there's a wildcard in the scope.    
+        3: Include subdomains/IPs in the scope only if they are explicitly within the scope. CIDR ranges and wildcards are disabled.
 
   -ch, --chain-mode, --plain, --raw, --no-ansi
       In "chain-mode" we only output the important information. No decorations.
