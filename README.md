@@ -23,11 +23,11 @@ This project is developed and maintained by [ItsIgnacioPortal](https://github.co
 
 - **Match any asset**: Hacker-Scoper works with IPv4, IPv6, and any URL format (including URLs with non-conventional schemes, like `sql://` or `redis://`).
 
-- **Wildcard support**: Hacker-Scoper supports wildcards in any part of your scope, allowing you to use filters like `amzn*.example.com` and `dev.*.example.com`.
-
-- **CIDR Range support**: You can use CIDR ranges in your scopes to filter IP addresses, for example: `10.49.20.0/24` for IPv4 and `2001:DB8::/32` for IPv6.
+- **Wildcard support**: Hacker-Scoper supports wildcards in any part of your domain-name scopes, allowing you to use filters like `amzn*.example.com` and `dev.*.example.com`.
 
 - **Regex support**: You can use Regular Expressions (regex) as scopes to filter any assets. All regex scopes _must_ start with `^` and end with `$`. For example: `^\w+:\/\/db[0-9][0-9][0-9]\.mycompany\.ec2\.amazonaws\.com.*$`
+
+- **CIDR Range support**: You can use CIDR ranges in your scopes to filter IP addresses, for example: `10.49.20.0/24` for IPv4 and `2001:DB8::/32` for IPv6.
 
 - **Nmap octet ranges support**: Just like nmap, you may specify IPv4 scopes using octet ranges, like for example: `192.168.1-3.1`. That example would match the IPs `192.168.1.1`, `192.168.2.1` and `192.168.3.1`. You can also specify a comma-separated list of numbers for each octet, for example: `192.168.1-3,5.1`, which would match the IPs: `192.168.1.1`, `192.168.2.1`, `192.168.3.1` and `192.168.5.1`.
 
