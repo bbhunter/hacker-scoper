@@ -150,7 +150,6 @@ func main() {
 	  	Default:
 		- Windows: %APPDATA%\hacker-scoper\
 		- Linux: /etc/hacker-scoper/
-		- Android: $HOME/.hacker-scoper/
 
   -iu, --include-unsure
       Include "unsure" URLs in the output. An unsure URL is a URL that's not in scope, but is also not out of scope. Very probably unrelated to the bug bounty program.
