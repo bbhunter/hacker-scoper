@@ -5,7 +5,7 @@
   <a href="https://go.dev"><img alt="Golang icon" src="https://img.shields.io/badge/Built_with-GoLang-00acd7?logo=go"></a>
   <a href="https://github.com/ItsIgnacioPortal/Hacker-Scoper/releases"><img alt="Link to the latest version" src="https://img.shields.io/github/v/release/itsignacioportal/hacker-scoper"></a>
   <a href="LICENSE.md"><img alt="Badge depicting the proyect license, the aGPLv3" src="https://img.shields.io/badge/License-aGPLv3-663366?logo=GNU"></a>
-  <a href="https://www.bestpractices.dev/projects/10594"><img alt="OpenSSF best practices badge." src="https://www.bestpractices.dev/projects/10594/badge?c"></a> 
+  <a href="https://www.bestpractices.dev/projects/10594"><img alt="OpenSSF best practices badge." src="https://www.bestpractices.dev/projects/10594/badge?c"></a>
 </p>
 
 
@@ -79,16 +79,16 @@ Download a pre-built binary from [the releases page](https://github.com/ItsIgnac
 Usage: hacker-scoper --file /path/to/targets [--company company | --inscopes-file /path/to/inscopes [--outofscopes-file /path/to/outofscopes] [--enable-private-tlds]] [--explicit-level INT] [--chain-mode] [--database /path/to/firebounty.json] [--include-unsure] [--output /path/to/outputfile] [--hostnames-only]
 
 ### Usage examples:
-- Example: Cat a file, and lookup scopes on firebounty    
+- Example: Cat a file, and lookup scopes on firebounty
   `cat recon-targets.txt | hacker-scoper -c google`
 
-- Example: Cat a file, and use the .inscope & .noscope files    
+- Example: Cat a file, and use the .inscope & .noscope files
   `cat recon-targets.txt | hacker-scoper`
 
-- Example: Manually pick a file, lookup scopes on firebounty, and set explicit-level    
+- Example: Manually pick a file, lookup scopes on firebounty, and set explicit-level
   `hacker-scoper -f recon-targets.txt -c google -e 2`
 
-- Example: Manually pick a file, use custom scopes and out-of-scope files, and set explicit-level    
+- Example: Manually pick a file, use custom scopes and out-of-scope files, and set explicit-level
   `hacker-scoper -f recon-targets.txt -ins inscope -oos noscope.txt -e 2`
 
 **Usage notes:** If no company and no inscope file are specified, hacker-scoper will look for ".inscope" and ".noscope" files in the current or in parent directories.
