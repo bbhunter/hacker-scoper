@@ -1,4 +1,4 @@
-module github.com/ItsIgnacioPortal/hacker-scoper
+module github.com/ItsIgnacioPortal/hacker-scoper/src/hacker-scoper
 
 go 1.23.0
 
