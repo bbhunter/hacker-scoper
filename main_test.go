@@ -63,30 +63,26 @@ func Test_parseLine_Scope_IPv6CIDR(t *testing.T) {
 
 func Test_parseLine_Scope_URL_Hostname(t *testing.T) {
 	scope := "https://example.com"
-	scopeParsed, _ := url.Parse(scope)
 	result, _ := parseLine(scope, true)
-	equals(t, scopeParsed, result)
+	equals(t, "example.com", result)
 }
 
 func Test_parseLine_Scope_URL_Hostname_NoScheme(t *testing.T) {
 	scope := "example.com"
-	scopeParsed, _ := url.Parse("https://" + scope)
 	result, _ := parseLine(scope, true)
-	equals(t, scopeParsed, result)
+	equals(t, "example.com", result)
 }
 
 func Test_parseLine_Scope_URL_Hostname_Port(t *testing.T) {
 	scope := "http://example.com:80"
-	scopeParsed, _ := url.Parse(scope)
 	result, _ := parseLine(scope, true)
-	equals(t, scopeParsed, result)
+	equals(t, "example.com", result)
 }
 
 func Test_parseLine_Scope_URL_Hostname_Port_NoScheme(t *testing.T) {
 	scope := "example.com:80"
-	scopeParsed, _ := url.Parse("https://" + scope)
 	result, _ := parseLine(scope, true)
-	equals(t, scopeParsed, result)
+	equals(t, "example.com", result)
 }
 
 func Test_parseLine_Scope_Invalid(t *testing.T) {
@@ -221,13 +217,12 @@ func Test_parseLine_Target_IPv4CIDR(t *testing.T) {
 	// If a CIDR range is given as a target (which doesn't make logical sense), the expected behavior is for it to be parsed as a URL with an IP host.
 	// so "192.168.0.1/24" turns into "https://192.168.0.1/24" (where "/24" is the URL path)
 	scopeAsIP := net.ParseIP("192.168.0.1")
-	scopeAsUrl, _ := url.Parse("https://192.168.0.1/24")
-	parsedScope := URLWithIPAddressHost{Url: scopeAsUrl, IPhost: scopeAsIP}
+	parsedScope := URLWithIPAddressHost{rawURL: scope, IPhost: scopeAsIP}
 
 	checkForErrors(t, err)
 	// Compare the fields, not the pointers
 	got := result.(*URLWithIPAddressHost)
-	if parsedScope.IPhost.String() != got.IPhost.String() || parsedScope.Url.String() != got.Url.String() {
+	if parsedScope.IPhost.String() != got.IPhost.String() || parsedScope.rawURL != got.rawURL {
 		t.Errorf("expected %+v, got %+v", parsedScope, got)
 	}
 }
@@ -237,13 +232,12 @@ func Test_parseLine_Target_IPv4CIDR(t *testing.T) {
 func Test_parseLine_Target_IPv6CIDR(t *testing.T) {
 	scope := "2001:DB8::/32"
 	scopeAsIP := net.ParseIP("2001:DB8::")
-	scopeAsUrl, _ := url.Parse("https://2001:DB8::/32")
-	parsedScope := URLWithIPAddressHost{Url: scopeAsUrl, IPhost: scopeAsIP}
+	parsedScope := URLWithIPAddressHost{rawURL: scope, IPhost: scopeAsIP}
 	result, err := parseLine(scope, false)
 
 	checkForErrors(t, err)
 	got := result.(*URLWithIPAddressHost)
-	if parsedScope.IPhost.String() != got.IPhost.String() || parsedScope.Url.String() != got.Url.String() {
+	if parsedScope.IPhost.String() != got.IPhost.String() || parsedScope.rawURL != got.rawURL {
 		t.Errorf("expected %+v, got %+v", parsedScope, got)
 	}
 }
@@ -338,8 +332,7 @@ func Test_parseLine_Target_URL_Hostname_Port_NoScheme_WithPath(t *testing.T) {
 func Test_parseLine_Target_URL_IPv4_WithPath(t *testing.T) {
 	scope := "https://192.168.1.0/path/to/something.html"
 	scopeAsIP := net.ParseIP("192.168.1.0")
-	scopeAsUrl, _ := url.Parse(scope)
-	parsedScope := URLWithIPAddressHost{Url: scopeAsUrl, IPhost: scopeAsIP}
+	parsedScope := URLWithIPAddressHost{rawURL: scope, IPhost: scopeAsIP}
 	result, err := parseLine(scope, false)
 
 	checkForErrors(t, err)
@@ -351,13 +344,12 @@ func Test_parseLine_Target_URL_IPv4_WithPath(t *testing.T) {
 func Test_parseLine_Target_URL_IPv4_NoScheme_WithPath(t *testing.T) {
 	scope := "192.168.1.0/path/to/something.html"
 	scopeAsIP := net.ParseIP("192.168.1.0")
-	scopeAsUrl, _ := url.Parse("https://" + scope)
-	parsedScope := URLWithIPAddressHost{Url: scopeAsUrl, IPhost: scopeAsIP}
+	parsedScope := URLWithIPAddressHost{rawURL: scope, IPhost: scopeAsIP}
 	result, err := parseLine(scope, false)
 
 	checkForErrors(t, err)
 	got := result.(*URLWithIPAddressHost)
-	if parsedScope.IPhost.String() != got.IPhost.String() || parsedScope.Url.String() != got.Url.String() {
+	if parsedScope.IPhost.String() != got.IPhost.String() || parsedScope.rawURL != got.rawURL {
 		t.Errorf("expected %+v, got %+v", parsedScope, got)
 	}
 
@@ -367,8 +359,7 @@ func Test_parseLine_Target_URL_IPv4_NoScheme_WithPath(t *testing.T) {
 func Test_parseLine_Target_URL_IPv4_Port_NoScheme_WithPath(t *testing.T) {
 	scope := "192.168.1.0:80/path/to/something.html"
 	scopeAsIP := net.ParseIP("192.168.1.0")
-	scopeAsUrl, _ := url.Parse("https://" + scope)
-	parsedScope := URLWithIPAddressHost{Url: scopeAsUrl, IPhost: scopeAsIP}
+	parsedScope := URLWithIPAddressHost{rawURL: scope, IPhost: scopeAsIP}
 	result, err := parseLine(scope, false)
 
 	checkForErrors(t, err)
@@ -384,8 +375,7 @@ func Test_isInscope_CIDR_IPv4(t *testing.T) {
 	var scopes []interface{}
 	assetIP := net.ParseIP("192.168.0.1")
 	scope := "https://192.168.0.1/path/to/stuff"
-	scopeAsUrl, _ := url.Parse(scope)
-	assetURLWithIPHost := URLWithIPAddressHost{Url: scopeAsUrl, IPhost: assetIP}
+	assetURLWithIPHost := URLWithIPAddressHost{rawURL: scope, IPhost: assetIP}
 	assetURLPtr, _ := url.Parse("https://example.com/path/to/stuff")
 	assetURL := *assetURLPtr
 	var iface interface{}
@@ -487,9 +477,8 @@ func Test_isInscope_CIDR_IPv6(t *testing.T) {
 	var result bool
 	var scopes []interface{}
 	var iface interface{}
-	temp, _ := url.Parse("https://2001:DB8:0000:0000:0000:0000:0000:0001/path/to/stuff")
 	assetIP := net.ParseIP("2001:DB8:0000:0000:0000:0000:0000:0001")
-	assetURLWithIPHost := URLWithIPAddressHost{Url: temp, IPhost: assetIP}
+	assetURLWithIPHost := URLWithIPAddressHost{rawURL: "https://2001:DB8:0000:0000:0000:0000:0000:0001/path/to/stuff", IPhost: assetIP}
 	assetURL, _ := url.Parse("https://example.com/path/to/stuff")
 
 	// Test inscope CIDR. --explicit-level=1
@@ -593,15 +582,15 @@ func Test_isInscope_URL(t *testing.T) {
 	var explicitLevel int
 
 	assetIPv6 := net.ParseIP("2001:DB8:0000:0000:0000:0000:0000:0001")
-	temp, _ := url.Parse("https://2001:DB8:0000:0000:0000:0000:0000:0001/path/to/stuff")
-	assetURLWithIPv6Host := URLWithIPAddressHost{Url: temp, IPhost: assetIPv6}
+	temp := "https://2001:DB8:0000:0000:0000:0000:0000:0001/path/to/stuff"
+	assetURLWithIPv6Host := URLWithIPAddressHost{rawURL: temp, IPhost: assetIPv6}
 	assetIPv4 := net.ParseIP("192.168.0.1")
-	temp, _ = url.Parse("https://192.168.0.1/path/to/stuff")
-	assetURLWithIPv4Host := URLWithIPAddressHost{Url: temp, IPhost: assetIPv4}
+	temp = "https://192.168.0.1/path/to/stuff"
+	assetURLWithIPv4Host := URLWithIPAddressHost{rawURL: temp, IPhost: assetIPv4}
 	pointerToassetURL, _ := url.Parse("https://example.com/path/to/stuff")
 	assetURL := *pointerToassetURL
 
-	scope, _ := url.Parse("https://example.com")
+	scope := "example.com"
 	scopes = append(scopes, scope)
 	explicitLevel = 1
 
@@ -739,7 +728,7 @@ func Test_isInscope_URL(t *testing.T) {
 	result = isInscope(&scopes, &iface, &explicitLevel)
 	equals(t, false, result) // The scope has a wildcard, but in explicitlevel=3 wildcards are ignored. This should fail.
 
-	scope, _ = url.Parse("https://somesubdomain.example.com")
+	scope = "somesubdomain.example.com"
 	scopes = []interface{}{scope}
 
 	iface = &assetIPv4
@@ -811,11 +800,11 @@ func Test_isInscope_IP(t *testing.T) {
 	var explicitLevel int
 
 	assetIPv6 := net.ParseIP("2001:DB8:0000:0000:0000:0000:0000:0001")
-	temp, _ := url.Parse("https://2001:DB8:0000:0000:0000:0000:0000:0001/path/to/stuff")
-	assetURLWithIPv6Host := URLWithIPAddressHost{Url: temp, IPhost: assetIPv6}
+	temp := "https://2001:DB8:0000:0000:0000:0000:0000:0001/path/to/stuff"
+	assetURLWithIPv6Host := URLWithIPAddressHost{rawURL: temp, IPhost: assetIPv6}
 	assetIPv4 := net.ParseIP("192.168.0.1")
-	temp, _ = url.Parse("https://192.168.0.1/path/to/stuff")
-	assetURLWithIPv4Host := URLWithIPAddressHost{Url: temp, IPhost: assetIPv4}
+	temp = "https://192.168.0.1/path/to/stuff"
+	assetURLWithIPv4Host := URLWithIPAddressHost{rawURL: temp, IPhost: assetIPv4}
 	pointerToassetURL, _ := url.Parse("https://example.com/path/to/stuff")
 	assetURL := *pointerToassetURL
 

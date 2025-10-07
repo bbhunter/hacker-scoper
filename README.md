@@ -5,7 +5,7 @@
   <a href="https://go.dev"><img alt="Golang icon" src="https://img.shields.io/badge/Built_with-GoLang-00acd7?logo=go"></a>
   <a href="https://github.com/ItsIgnacioPortal/Hacker-Scoper/releases"><img alt="Link to the latest version" src="https://img.shields.io/github/v/release/itsignacioportal/hacker-scoper"></a>
   <a href="LICENSE.md"><img alt="Badge depicting the proyect license, the aGPLv3" src="https://img.shields.io/badge/License-aGPLv3-663366?logo=GNU"></a>
-  <a href="https://www.bestpractices.dev/projects/10594"><img alt="OpenSSF best practices badge." src="https://www.bestpractices.dev/projects/10594/badge?c"></a> 
+  <a href="https://www.bestpractices.dev/projects/10594"><img alt="OpenSSF best practices badge." src="https://www.bestpractices.dev/projects/10594/badge?c"></a>
 </p>
 
 
@@ -23,11 +23,11 @@ This project is developed and maintained by [ItsIgnacioPortal](https://github.co
 
 - **Match any asset**: Hacker-Scoper works with IPv4, IPv6, and any URL format (including URLs with non-conventional schemes, like `sql://` or `redis://`).
 
-- **Wildcard support**: Hacker-Scoper supports wildcards in any part of your scope, allowing you to use filters like `amzn*.example.com` and `dev.*.example.com`.
-
-- **CIDR Range support**: You can use CIDR ranges in your scopes to filter IP addresses, for example: `10.49.20.0/24` for IPv4 and `2001:DB8::/32` for IPv6.
+- **Wildcard support**: Hacker-Scoper supports wildcards in any part of your domain-name scopes, allowing you to use filters like `amzn*.example.com` and `dev.*.example.com`.
 
 - **Regex support**: You can use Regular Expressions (regex) as scopes to filter any assets. All regex scopes _must_ start with `^` and end with `$`. For example: `^\w+:\/\/db[0-9][0-9][0-9]\.mycompany\.ec2\.amazonaws\.com.*$`
+
+- **CIDR Range support**: You can use CIDR ranges in your scopes to filter IP addresses, for example: `10.49.20.0/24` for IPv4 and `2001:DB8::/32` for IPv6.
 
 - **Nmap octet ranges support**: Just like nmap, you may specify IPv4 scopes using octet ranges, like for example: `192.168.1-3.1`. That example would match the IPs `192.168.1.1`, `192.168.2.1` and `192.168.3.1`. You can also specify a comma-separated list of numbers for each octet, for example: `192.168.1-3,5.1`, which would match the IPs: `192.168.1.1`, `192.168.2.1`, `192.168.3.1` and `192.168.5.1`.
 
@@ -76,19 +76,19 @@ Download a pre-built binary from [the releases page](https://github.com/ItsIgnac
 - A: It works by looking for company-name matches in a cached copy of the [firebounty](https://firebounty.com/) database. The company name that you specify will be lowercase'd, and then the tool will check if any company name in the database contains that string. Once it finds a name match, it will filter your supplied targets according to the scopes that firebounty detected for that company. You can test how this would perform by just searching some name in [the firebounty website](https://firebounty.com/).
 
 ## 🤔 Usage
-Usage: hacker-scoper --file /path/to/targets [--company company | --inscope-file /path/to/inscopes [--outofscope-file /path/to/outofscopes]] [--explicit-level INT] [--chain-mode] [--database /path/to/firebounty.json] [--include-unsure] [--output /path/to/outputfile] [--hostnames-only]
+Usage: hacker-scoper --file /path/to/targets [--company company | --inscopes-file /path/to/inscopes [--outofscopes-file /path/to/outofscopes] [--enable-private-tlds]] [--explicit-level INT] [--chain-mode] [--database /path/to/firebounty.json] [--include-unsure] [--output /path/to/outputfile] [--hostnames-only]
 
 ### Usage examples:
-- Example: Cat a file, and lookup scopes on firebounty    
+- Example: Cat a file, and lookup scopes on firebounty
   `cat recon-targets.txt | hacker-scoper -c google`
 
-- Example: Cat a file, and use the .inscope & .noscope files    
+- Example: Cat a file, and use the .inscope & .noscope files
   `cat recon-targets.txt | hacker-scoper`
 
-- Example: Manually pick a file, lookup scopes on firebounty, and set explicit-level    
+- Example: Manually pick a file, lookup scopes on firebounty, and set explicit-level
   `hacker-scoper -f recon-targets.txt -c google -e 2`
 
-- Example: Manually pick a file, use custom scopes and out-of-scope files, and set explicit-level    
+- Example: Manually pick a file, use custom scopes and out-of-scope files, and set explicit-level
   `hacker-scoper -f recon-targets.txt -ins inscope -oos noscope.txt -e 2`
 
 **Usage notes:** If no company and no inscope file are specified, hacker-scoper will look for ".inscope" and ".noscope" files in the current or in parent directories.
@@ -100,15 +100,16 @@ Usage: hacker-scoper --file /path/to/targets [--company company | --inscope-file
 | -f | --file |  Path to your file containing URLs/domains/IPs |
 | -ins | --inscope-file |  Path to a custom plaintext file containing scopes |
 | -oos | --outofscope-file |  Path to a custom plaintext file containing scopes exclusions |
-| -e | --explicit-level int |  How explicit we expect the scopes to be:    <br> 1 (default): Include subdomains in the scope even if there's not a wildcard in the scope    <br> 2: Include subdomains in the scope only if there's a wildcard in the scope    <br> 3: Include subdomains/IPs in the scope only if they are explicitly within the scope. CIDR ranges and wildcards are disabled. |
+| -e | --inscope-explicit-level int<br>--noscope-explicit-level  int|  How explicit we expect the scopes to be:    <br> 1 (default): Include subdomains in the scope even if there's not a wildcard in the scope.    <br> 2: Include subdomains in the scope only if there's a wildcard in the scope.    <br> 3: Include subdomains/IPs in the scope only if they are explicitly within the scope. CIDR ranges and wildcards are disabled. |
+|  | --enable-private-tlds | Set this flag to enable the use of company scope domains with private TLDs. This essentially disables the bug-bounty-program misconfiguration detection. |
 | -ch | --chain-mode |  In "chain-mode" we only output the important information. No decorations. Default: false |
 | --database |  | Custom path to the cached firebounty database |
-| -iu | --include-unsure |  Include "unsure" URLs in the output. An unsure URL is a URL that's not in scope, but is also not out of scope. Very probably unrelated to the bug bounty program. |
-| -o | --output |  Save the inscope urls to a file |
+| -iu | --include-unsure |  Include "unsure" assets in the output. An unsure asset is an asset that's not in scope, but is also not out of scope. Very probably unrelated to the bug bounty program. |
+| -o | --output |  Save the inscope assets to a file |
 |    | --quiet | Disable command-line output. |
-| -ho | --hostnames-only |  Output only hostnames instead of the full URLs |
+| -ho | --hostnames-only | When handling URLs, output only their hostnames instead of the full URLs |
 | --version |  | Show the installed version |
-|_______________|___________________| _____________________________________ |
+|_______________|_____________________________| _____________________________________ |
 
 list example:
 ```javascript

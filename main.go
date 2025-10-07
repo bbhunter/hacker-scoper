@@ -28,7 +28,7 @@ var firebountyJSONPath string
 var ErrInvalidFormat = errors.New("invalid format: not IP, CIDR, or URL")
 
 type URLWithIPAddressHost struct {
-	Url    *url.URL
+	rawURL string
 	IPhost net.IP
 }
 
@@ -75,9 +75,8 @@ type firebountySearchMatch struct {
 }
 
 var chainMode bool
-var targetsListFilepath string
+var usedstdin bool
 var targetsListFile *os.File
-var includeUnsure bool
 
 const colorReset = "\033[0m"
 const colorYellow = "\033[33m"
@@ -85,27 +84,28 @@ const colorRed = "\033[38;2;255;0;0m"
 const colorGreen = "\033[38;2;37;255;36m"
 const colorBlue = "\033[38;2;0;204;255m"
 
-var usedstdin bool
-var inscopeOutputFile string
-var outputDomainsOnly bool
-
 func main() {
 
 	StartBenchmark()
 
+	var targetsListFilepath string
+	var includeUnsure bool
+	var inscopeOutputFile string
+	var outputDomainsOnly bool
+
 	var quietMode bool
 	var showVersion bool
 	var company string
-	// TODO: Replace the flag library with something that allows us to read and store explicit level straight into a uint8 variable. This doesn't need to be a full 32-bit int.
-	// TODO: Add a separate --explicit-level flag for noscope. So we can have inscopeExplicitLevel, and noscope ExplicitLevel. Customization ftw!
-	var explicitLevel int //should only be [0], 1, or 2
+	var inscopeExplicitLevel int //should only be [0], 1, or 2
+	var noscopeExplicitLevel int //should only be [0], 1, or 2
 	var scopesListFilepath string
 	var outofScopesListFilepath string
+	var privateTLDsAreEnabled bool
 	usedstdin = false
 
 	const usage = `Hacker-scoper is a GoLang tool designed to assist cybersecurity professionals in bug bounty programs. It identifies and excludes URLs and IP addresses that fall outside a program's scope by comparing input targets (URLs/IPs) against a locally cached [FireBounty](https://firebounty.com) database of scraped scope data. Users may also supply a custom scope list for validation.
 
-` + colorBlue + `Usage:` + colorReset + ` hacker-scoper --file /path/to/targets [--company company | --inscopes-file /path/to/inscopes [--outofscopes-file /path/to/outofscopes]] [--explicit-level INT] [--chain-mode] [--database /path/to/firebounty.json] [--include-unsure] [--output /path/to/outputfile] [--hostnames-only]
+` + colorBlue + `Usage:` + colorReset + ` hacker-scoper --file /path/to/targets [--company company | --inscopes-file /path/to/inscopes [--outofscopes-file /path/to/outofscopes] [--enable-private-tlds]] [--explicit-level INT] [--chain-mode] [--database /path/to/firebounty.json] [--include-unsure] [--output /path/to/outputfile] [--hostnames-only]
 
 ` + colorBlue + `Usage examples:` + colorReset + `
   Example: Cat a file, and lookup scopes on firebounty
@@ -136,34 +136,37 @@ func main() {
   -oos, --outofscope, --out-of-scope, --out-of-scope-file, --outofscope-file string
       Path to a custom plaintext file containing scopes exclusions
 
-  -e, --explicit-level int
+  -ie, --inscope-explicit-level int
+  -oe, --noscope-explicit-level int
       How explicit we expect the scopes to be:
-        1 (default): Include subdomains in the scope even if there's not a wildcard in the scope.
-        2: Include subdomains in the scope only if there's a wildcard in the scope.
-        3: Include subdomains/IPs in the scope only if they are explicitly within the scope. CIDR ranges and wildcards are disabled
+        (default) 1: Include subdomains in the scope even if there's not a wildcard in the scope.
+                  2: Include subdomains in the scope only if there's a wildcard in the scope.
+                  3: Include subdomains/IPs in the scope only if they are explicitly within the scope. CIDR ranges and wildcards are disabled.
+
+  --enable-private-tlds
+      Set this flag to enable the use of company scope domains with private TLDs. This essentially disables the bug-bounty-program misconfiguration detection.
 
   -ch, --chain-mode, --plain, --raw, --no-ansi
       In "chain-mode" we only output the important information. No decorations.
 	    Default: false
-	
+
   --database string
       Custom path to the cached firebounty database.
 	  	Default:
 		- Windows: %APPDATA%\hacker-scoper\
 		- Linux: /etc/hacker-scoper/
-		- Android: $HOME/.hacker-scoper/
 
   -iu, --include-unsure
-      Include "unsure" URLs in the output. An unsure URL is a URL that's not in scope, but is also not out of scope. Very probably unrelated to the bug bounty program.
+      Include "unsure" assets in the output. An unsure asset is an asset that's not in scope, but is also not out of scope. Very probably unrelated to the bug bounty program.
 
   -o, --output string
-      Save the inscope urls to a file
+      Save the inscope assets to a file
 
   --quiet
       Disable command-line output.
 
   -ho, --hostnames-only
-      Output only hostnames instead of the full URLs
+      When handling URLs, output only their hostnames instead of the full URLs
 
   --version
       Show the installed version
@@ -184,8 +187,13 @@ func main() {
 	flag.StringVar(&outofScopesListFilepath, "out-of-scope", "", "Path to a custom plaintext file containing scopes exclusions")
 	flag.StringVar(&outofScopesListFilepath, "outofscope-file", "", "Path to a custom plaintext file containing scopes exclusions")
 	flag.StringVar(&outofScopesListFilepath, "out-of-scope-file", "", "Path to a custom plaintext file containing scopes exclusions")
-	flag.IntVar(&explicitLevel, "e", 1, "Level of explicity expected. ([1]/2/3)")
-	flag.IntVar(&explicitLevel, "explicit-level", 1, "Level of explicity expected. ([1]/2/3)")
+	flag.IntVar(&inscopeExplicitLevel, "ie", 1, "Level of explicity expected. ([1]/2/3)")
+	flag.IntVar(&inscopeExplicitLevel, "inscope-explicit-level", 1, "Level of explicity expected. ([1]/2/3)")
+	flag.IntVar(&inscopeExplicitLevel, "in-scope-explicit-level", 1, "Level of explicity expected. ([1]/2/3)")
+	flag.IntVar(&noscopeExplicitLevel, "oe", 1, "Level of explicity expected. ([1]/2/3)")
+	flag.IntVar(&noscopeExplicitLevel, "noscope-explicit-level", 1, "Level of explicity expected. ([1]/2/3)")
+	flag.IntVar(&noscopeExplicitLevel, "no-scope-explicit-level", 1, "Level of explicity expected. ([1]/2/3)")
+	flag.BoolVar(&privateTLDsAreEnabled, "enable-private-tlds", false, "Set this flag to enable the use of company scope domains with private TLDs. This essentially disables the bug-bounty-program misconfiguration detection.")
 	flag.BoolVar(&chainMode, "ch", false, "Output only the important information. No decorations.")
 	flag.BoolVar(&chainMode, "chain-mode", false, "Output only the important information. No decorations.")
 	flag.BoolVar(&chainMode, "plain", false, "Output only the important information. No decorations.")
@@ -205,17 +213,17 @@ func main() {
 	flag.Parse()
 
 	banner := `
-'||                      '||                      '                                                 
- || ..    ....     ....   ||  ..    ....  ... ..     ....    ....    ...   ... ...    ....  ... ..  
- ||' ||  '' .||  .|   ''  || .'   .|...||  ||' ''   ||. '  .|   '' .|  '|.  ||'  || .|...||  ||' '' 
- ||  ||  .|' ||  ||       ||'|.   ||       ||       . '|.. ||      ||   ||  ||    | ||       ||     
-.||. ||. '|..'|'  '|...' .||. ||.  '|...' .||.      |'..|'  '|...'  '|..|'  ||...'   '|...' .||.    
-                                                                            ||                      
-                                                                           ''''                     
+'||                      '||                      '
+ || ..    ....     ....   ||  ..    ....  ... ..     ....    ....    ...   ... ...    ....  ... ..
+ ||' ||  '' .||  .|   ''  || .'   .|...||  ||' ''   ||. '  .|   '' .|  '|.  ||'  || .|...||  ||' ''
+ ||  ||  .|' ||  ||       ||'|.   ||       ||       . '|.. ||      ||   ||  ||    | ||       ||
+.||. ||. '|..'|'  '|...' .||. ||.  '|...' .||.      |'..|'  '|...'  '|..|'  ||...'   '|...' .||.
+                                                                            ||
+                                                                           ''''
 `
 
 	if showVersion {
-		fmt.Print("hacker-scoper: v6.0.0\n")
+		fmt.Print("hacker-scoper: v6.1.0\n")
 		os.Exit(0)
 	}
 
@@ -256,9 +264,13 @@ func main() {
 	}
 
 	//validate arguments
-	if (explicitLevel != 1) && (explicitLevel != 2) && explicitLevel != 3 {
+	if inscopeExplicitLevel != 1 && inscopeExplicitLevel != 2 && inscopeExplicitLevel != 3 {
 		var err error
-		crash("Invalid explicit-level selected", err)
+		crash("Invalid in-scope explicit-level selected", err)
+	}
+	if noscopeExplicitLevel != 1 && noscopeExplicitLevel != 2 && noscopeExplicitLevel != 3 {
+		var err error
+		crash("Invalid no-scope explicit-level selected", err)
 	}
 
 	// Validate the targets input
@@ -460,7 +472,7 @@ func main() {
 
 					//Load the matchingCompanyList 2D slice, and convert the first member from string to integer, and save the company index
 					companyIndex := matchingCompanyList[i].companyIndex
-					tempinscopeLines, tempnoscopeLines, err := getCompanyScopes(&firebountyJSON, &companyIndex)
+					tempinscopeLines, tempnoscopeLines, err := getCompanyScopes(&firebountyJSON, &companyIndex, privateTLDsAreEnabled)
 					if err != nil {
 						crash("Error parsing the company "+company, err)
 					}
@@ -473,7 +485,7 @@ func main() {
 				// The user chose a specific company
 				// Use userChoiceAsInt as an index for the matchingCompanyList 2D slice, and save the company index
 				companyCounter := matchingCompanyList[userChoiceAsInt].companyIndex
-				inscopeLines, noscopeLines, err = getCompanyScopes(&firebountyJSON, &companyCounter)
+				inscopeLines, noscopeLines, err = getCompanyScopes(&firebountyJSON, &companyCounter, privateTLDsAreEnabled)
 				if err != nil {
 					crash("Error parsing the company "+company, err)
 				}
@@ -484,7 +496,7 @@ func main() {
 			if !chainMode {
 				fmt.Print("[+] Search for \"" + company + "\" matched the company " + string(colorGreen) + firebountyJSON.Pgms[matchingCompanyList[0].companyIndex].Name + string(colorReset) + "!\n")
 			}
-			inscopeLines, noscopeLines, err = getCompanyScopes(&firebountyJSON, &matchingCompanyList[0].companyIndex)
+			inscopeLines, noscopeLines, err = getCompanyScopes(&firebountyJSON, &matchingCompanyList[0].companyIndex, privateTLDsAreEnabled)
 			if err != nil {
 				crash("Error parsing the company "+company, err)
 			}
@@ -559,7 +571,7 @@ func main() {
 		}
 
 		// "isInsideScope" can't be called "isInscope" because we already have a function with that name.
-		isInsideScope, isUnsure := parseScopes(&inscopeScopes, &noscopeScopes, &parsedTarget, &explicitLevel)
+		isInsideScope, isUnsure := parseScopes(&inscopeScopes, &noscopeScopes, &parsedTarget, &inscopeExplicitLevel, &noscopeExplicitLevel, includeUnsure)
 
 		if isInsideScope {
 			if outputDomainsOnly {
@@ -567,7 +579,7 @@ func main() {
 				case *url.URL:
 					target = removePortFromHost(assertedTarget)
 				case *URLWithIPAddressHost:
-					target = removePortFromHost(assertedTarget.Url)
+					target = assertedTarget.IPhost.String()
 				default:
 					// This should handle the "*net.IP" case.
 					target = targetsInput[i]
@@ -644,13 +656,13 @@ func updateFireBountyJSON() {
 
 }
 
-func parseScopes(inscopeScopes *[]interface{}, noscopeScopes *[]interface{}, target *interface{}, explicitLevel *int) (isInsideScope bool, isUnsure bool) {
+func parseScopes(inscopeScopes *[]interface{}, noscopeScopes *[]interface{}, target *interface{}, inscopeExplicitLevel *int, noscopeExplicitLevel *int, includeUnsure bool) (isInsideScope bool, isUnsure bool) {
 	// This function is where we'll implement the --include-unsure logic
 
-	targetIsOutOfScope := isOutOfScope(noscopeScopes, target, explicitLevel)
+	targetIsOutOfScope := isOutOfScope(noscopeScopes, target, noscopeExplicitLevel)
 	if !targetIsOutOfScope {
 		// We only need to check if the target is inscope if it isn't out of scope.
-		targetIsInscope := isInscope(inscopeScopes, target, explicitLevel)
+		targetIsInscope := isInscope(inscopeScopes, target, inscopeExplicitLevel)
 		if targetIsInscope {
 			return true, false
 		} else if includeUnsure && !targetIsInscope {
@@ -746,7 +758,7 @@ func cleanup() {
 // companyIndex is the numeric index of the company in the firebounty database, where 0 is the first company, 1 is the second company, etc
 // Returns an error if no inscopeLines could be detected.
 // Does not return an error if no noscopeLines could be detected.
-func getCompanyScopes(firebountyJSON *Firebounty, companyIndex *int) (inscopeLines []string, noscopeLines []string, err error) {
+func getCompanyScopes(firebountyJSON *Firebounty, companyIndex *int, privateTLDsAreEnabled bool) (inscopeLines []string, noscopeLines []string, err error) {
 
 	//match found!
 	if !chainMode {
@@ -792,7 +804,7 @@ func getCompanyScopes(firebountyJSON *Firebounty, companyIndex *int) (inscopeLin
 			rawInScope := firebountyJSON.Pgms[*companyIndex].Scopes.In_scopes[inscopeCounter].Scope
 
 			// TODO: Optimize this. It's very inneficient to be parsing this line twice. parseLine is already called within isAndroidPackageName, so we shouldn't call it again, that's redundant.
-			if !isAndroidPackageName(&rawInScope) {
+			if !isAndroidPackageName(&rawInScope, privateTLDsAreEnabled) {
 				inscopeLines = append(inscopeLines, rawInScope)
 			}
 
@@ -810,7 +822,7 @@ func getCompanyScopes(firebountyJSON *Firebounty, companyIndex *int) (inscopeLin
 
 			rawNoScope := firebountyJSON.Pgms[*companyIndex].Scopes.Out_of_scopes[noscopeCounter].Scope
 
-			if !isAndroidPackageName(&rawNoScope) {
+			if !isAndroidPackageName(&rawNoScope, privateTLDsAreEnabled) {
 				noscopeLines = append(noscopeLines, rawNoScope)
 			}
 
@@ -824,11 +836,14 @@ func getCompanyScopes(firebountyJSON *Firebounty, companyIndex *int) (inscopeLin
 // It's goal is to help detect any misconfigured bug-bounty programs
 // Only scopes that have the type "web_application" but that we aren't sure if they are actually web_application resources should be sent into this function.
 // Sometimes bug bounty programs set APK package names such as com.my.businness.gatewayportal as web_application resources instead of as android_application resources in their program scope, causing trouble for anyone using automatic tools. Hacker-Scoper automatically detects these errors and notifies the user.
-func isAndroidPackageName(rawScope *string) bool {
+func isAndroidPackageName(rawScope *string, privateTLDsAreEnabled bool) bool {
+
+	if privateTLDsAreEnabled {
+		return privateTLDsAreEnabled
+	}
 
 	// We begin the detection by trying to parse the given scope as an actual scope.
 	// The problem with url.Parse is that it rarely returns an error. It often times assumes that invalid domain names (such as "this.is.not.avaliddomain") actually have a "private Top-Level-Domain". This is extremely unlikely in reality
-	// TODO: Add a global switch you can specify to enable private TLDs.
 	// TODO: Split parseLine into 3 functions, so we can directly try to parse the rawScope as a URL rather than wasting CPU cycles trying to parse CIDR Range -> IP Address -> URL.
 	inscope, err := parseLine(*rawScope, true)
 
@@ -882,7 +897,7 @@ func readFileLines(filepath string) ([]string, error) {
 // If isScope is true, ParseLine attempts to parse a string into either:
 // - *net.IPNet		(CIDR notation)
 // - *net.IP		(single IP address)
-// - *url.URL 		(valid URL)
+// - *string 		(hostname of a valid URL)
 // - *regexp.Regexp (Regex)
 // - *WildcardScope (Wildcard Scope)
 //
@@ -967,14 +982,14 @@ func parseLine(line string, isScope bool) (interface{}, error) {
 		// scopes will never be URLs with IP hostnames. It doesn't make sense to check for IP hostnames in URLs for scopes
 		// Try plain IP
 		if ip := net.ParseIP(removePortFromHost(parsedURL)); ip != nil {
-			myURLWithIPHostname := URLWithIPAddressHost{Url: parsedURL, IPhost: ip}
+			myURLWithIPHostname := URLWithIPAddressHost{rawURL: line, IPhost: ip}
 			return &myURLWithIPHostname, nil
 		} else {
 			return parsedURL, nil
 		}
 	} else {
 		if parsedURL.Path == "" || parsedURL.Path == "/" {
-			return parsedURL, nil
+			return removePortFromHost(parsedURL), nil
 		} else {
 			if !chainMode {
 				warning("The text \"" + line + "\" was given as a scope, but it contains the path \"" + parsedURL.Path + "\". In order to properly match paths in your scope you have to use regex. This scope has been ignored.")
@@ -1030,16 +1045,16 @@ func isInscope(inscopeScopes *[]interface{}, target *interface{}, explicitLevel 
 			// We're only interested in comparing URL targets against URL scopes, and regex.
 			switch assertedScope := (*inscopeScopes)[i].(type) {
 			// If the i scope is a URL...
-			case *url.URL:
+			case string:
 				switch *explicitLevel {
 				case 1:
 					//if x is a subdomain of y
 					//ex: wordpress.example.com with a scope of *.example.com will give a match
 					//we DON'T do it by splitting on dots and matching, because that would cause errors with domains that have two top-level-domains (gov.br for example)
-					result = strings.HasSuffix(removePortFromHost(assertedTarget), assertedScope.Host)
+					result = strings.HasSuffix(removePortFromHost(assertedTarget), assertedScope)
 
 				case 2, 3:
-					result = removePortFromHost(assertedTarget) == assertedScope.Host
+					result = removePortFromHost(assertedTarget) == assertedScope
 				}
 
 			case *WildcardScope:
@@ -1075,8 +1090,6 @@ func isInscopeIP(targetIP *net.IP, inscopeScopes *[]interface{}, explicitLevel *
 			// If the i scope is an IP Address...
 			case *net.IP:
 				result = assertedScope.Equal(*targetIP)
-
-				// TODO: Add a regex case for comparing against target IP addresses
 			}
 			if result {
 				return result
@@ -1095,8 +1108,6 @@ func isInscopeIP(targetIP *net.IP, inscopeScopes *[]interface{}, explicitLevel *
 			// If the i scope is an IP Address...
 			case *net.IP:
 				result = assertedScope.Equal(*targetIP)
-
-				// TODO: Add a regex case for comparing against target IP addresses
 
 			case *NmapIPRange:
 				ip := (*targetIP).To4()
