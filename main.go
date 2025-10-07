@@ -96,8 +96,8 @@ func main() {
 	var quietMode bool
 	var showVersion bool
 	var company string
-	// TODO: Add a separate --explicit-level flag for noscope. So we can have inscopeExplicitLevel, and noscope ExplicitLevel. Customization ftw!
-	var explicitLevel int //should only be [0], 1, or 2
+	var inscopeExplicitLevel int //should only be [0], 1, or 2
+	var noscopeExplicitLevel int //should only be [0], 1, or 2
 	var scopesListFilepath string
 	var outofScopesListFilepath string
 	var privateTLDsAreEnabled bool
@@ -136,7 +136,8 @@ func main() {
   -oos, --outofscope, --out-of-scope, --out-of-scope-file, --outofscope-file string
       Path to a custom plaintext file containing scopes exclusions
 
-  -e, --explicit-level int
+  -ie, --inscope-explicit-level int
+  -oe, --noscope-explicit-level int
       How explicit we expect the scopes to be:
         (default) 1: Include subdomains in the scope even if there's not a wildcard in the scope.
                   2: Include subdomains in the scope only if there's a wildcard in the scope.
@@ -186,8 +187,12 @@ func main() {
 	flag.StringVar(&outofScopesListFilepath, "out-of-scope", "", "Path to a custom plaintext file containing scopes exclusions")
 	flag.StringVar(&outofScopesListFilepath, "outofscope-file", "", "Path to a custom plaintext file containing scopes exclusions")
 	flag.StringVar(&outofScopesListFilepath, "out-of-scope-file", "", "Path to a custom plaintext file containing scopes exclusions")
-	flag.IntVar(&explicitLevel, "e", 1, "Level of explicity expected. ([1]/2/3)")
-	flag.IntVar(&explicitLevel, "explicit-level", 1, "Level of explicity expected. ([1]/2/3)")
+	flag.IntVar(&inscopeExplicitLevel, "ie", 1, "Level of explicity expected. ([1]/2/3)")
+	flag.IntVar(&inscopeExplicitLevel, "inscope-explicit-level", 1, "Level of explicity expected. ([1]/2/3)")
+	flag.IntVar(&inscopeExplicitLevel, "in-scope-explicit-level", 1, "Level of explicity expected. ([1]/2/3)")
+	flag.IntVar(&noscopeExplicitLevel, "oe", 1, "Level of explicity expected. ([1]/2/3)")
+	flag.IntVar(&noscopeExplicitLevel, "noscope-explicit-level", 1, "Level of explicity expected. ([1]/2/3)")
+	flag.IntVar(&noscopeExplicitLevel, "no-scope-explicit-level", 1, "Level of explicity expected. ([1]/2/3)")
 	flag.BoolVar(&privateTLDsAreEnabled, "enable-private-tlds", false, "Set this flag to enable the use of company scope domains with private TLDs. This essentially disables the bug-bounty-program misconfiguration detection.")
 	flag.BoolVar(&chainMode, "ch", false, "Output only the important information. No decorations.")
 	flag.BoolVar(&chainMode, "chain-mode", false, "Output only the important information. No decorations.")
@@ -259,9 +264,13 @@ func main() {
 	}
 
 	//validate arguments
-	if (explicitLevel != 1) && (explicitLevel != 2) && explicitLevel != 3 {
+	if inscopeExplicitLevel != 1 && inscopeExplicitLevel != 2 && inscopeExplicitLevel != 3 {
 		var err error
-		crash("Invalid explicit-level selected", err)
+		crash("Invalid in-scope explicit-level selected", err)
+	}
+	if noscopeExplicitLevel != 1 && noscopeExplicitLevel != 2 && noscopeExplicitLevel != 3 {
+		var err error
+		crash("Invalid no-scope explicit-level selected", err)
 	}
 
 	// Validate the targets input
@@ -562,7 +571,7 @@ func main() {
 		}
 
 		// "isInsideScope" can't be called "isInscope" because we already have a function with that name.
-		isInsideScope, isUnsure := parseScopes(&inscopeScopes, &noscopeScopes, &parsedTarget, &explicitLevel, includeUnsure)
+		isInsideScope, isUnsure := parseScopes(&inscopeScopes, &noscopeScopes, &parsedTarget, &inscopeExplicitLevel, &noscopeExplicitLevel, includeUnsure)
 
 		if isInsideScope {
 			if outputDomainsOnly {
@@ -647,13 +656,13 @@ func updateFireBountyJSON() {
 
 }
 
-func parseScopes(inscopeScopes *[]interface{}, noscopeScopes *[]interface{}, target *interface{}, explicitLevel *int, includeUnsure bool) (isInsideScope bool, isUnsure bool) {
+func parseScopes(inscopeScopes *[]interface{}, noscopeScopes *[]interface{}, target *interface{}, inscopeExplicitLevel *int, noscopeExplicitLevel *int, includeUnsure bool) (isInsideScope bool, isUnsure bool) {
 	// This function is where we'll implement the --include-unsure logic
 
-	targetIsOutOfScope := isOutOfScope(noscopeScopes, target, explicitLevel)
+	targetIsOutOfScope := isOutOfScope(noscopeScopes, target, noscopeExplicitLevel)
 	if !targetIsOutOfScope {
 		// We only need to check if the target is inscope if it isn't out of scope.
-		targetIsInscope := isInscope(inscopeScopes, target, explicitLevel)
+		targetIsInscope := isInscope(inscopeScopes, target, inscopeExplicitLevel)
 		if targetIsInscope {
 			return true, false
 		} else if includeUnsure && !targetIsInscope {
