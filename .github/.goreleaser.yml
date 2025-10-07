@@ -34,7 +34,7 @@ release:
 
 builds:
   - main: ./src/hacker-scoper
-  - ldflags:
+    ldflags:
     - -s -w
     env:
     - CGO_ENABLED=0
