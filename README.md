@@ -76,7 +76,7 @@ Download a pre-built binary from [the releases page](https://github.com/ItsIgnac
 - A: It works by looking for company-name matches in a cached copy of the [firebounty](https://firebounty.com/) database. The company name that you specify will be lowercase'd, and then the tool will check if any company name in the database contains that string. Once it finds a name match, it will filter your supplied targets according to the scopes that firebounty detected for that company. You can test how this would perform by just searching some name in [the firebounty website](https://firebounty.com/).
 
 ## 🤔 Usage
-Usage: hacker-scoper --file /path/to/targets [--company company | --inscope-file /path/to/inscopes [--outofscope-file /path/to/outofscopes]] [--explicit-level INT] [--chain-mode] [--database /path/to/firebounty.json] [--include-unsure] [--output /path/to/outputfile] [--hostnames-only]
+Usage: hacker-scoper --file /path/to/targets [--company company | --inscopes-file /path/to/inscopes [--outofscopes-file /path/to/outofscopes] [--enable-private-tlds]] [--explicit-level INT] [--chain-mode] [--database /path/to/firebounty.json] [--include-unsure] [--output /path/to/outputfile] [--hostnames-only]
 
 ### Usage examples:
 - Example: Cat a file, and lookup scopes on firebounty    
@@ -101,6 +101,7 @@ Usage: hacker-scoper --file /path/to/targets [--company company | --inscope-file
 | -ins | --inscope-file |  Path to a custom plaintext file containing scopes |
 | -oos | --outofscope-file |  Path to a custom plaintext file containing scopes exclusions |
 | -e | --explicit-level int |  How explicit we expect the scopes to be:    <br> 1 (default): When handling URLs/domains, include subdomains in the scope even if there's not a wildcard in the scope.    <br> 2: When handling URLs/domains, include subdomains in the scope only if there's a wildcard in the scope.    <br> 3: Include subdomains/IPs in the scope only if they are explicitly within the scope. CIDR ranges and wildcards are disabled. |
+|  | --enable-private-tlds | Set this flag to enable the use of company scope domains with private TLDs. This essentially disables the bug-bounty-program misconfiguration detection. |
 | -ch | --chain-mode |  In "chain-mode" we only output the important information. No decorations. Default: false |
 | --database |  | Custom path to the cached firebounty database |
 | -iu | --include-unsure |  Include "unsure" assets in the output. An unsure asset is an asset that's not in scope, but is also not out of scope. Very probably unrelated to the bug bounty program. |
