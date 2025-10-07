@@ -50,7 +50,7 @@ choco install hacker-scoper
 **Using go install**
 
 ```
-go install github.com/ItsIgnacioPortal/hacker-scoper
+go install github.com/ItsIgnacioPortal/hacker-scoper/src/hacker-scoper
 ```
 
 **From the releases page**

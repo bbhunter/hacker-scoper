@@ -75,8 +75,6 @@ type firebountySearchMatch struct {
 }
 
 var chainMode bool
-var usedstdin bool
-var targetsListFile *os.File
 
 const colorReset = "\033[0m"
 const colorYellow = "\033[33m"
@@ -101,7 +99,6 @@ func main() {
 	var scopesListFilepath string
 	var outofScopesListFilepath string
 	var privateTLDsAreEnabled bool
-	usedstdin = false
 
 	const usage = `Hacker-scoper is a GoLang tool designed to assist cybersecurity professionals in bug bounty programs. It identifies and excludes URLs and IP addresses that fall outside a program's scope by comparing input targets (URLs/IPs) against a locally cached [FireBounty](https://firebounty.com) database of scraped scope data. Users may also supply a custom scope list for validation.
 
@@ -223,7 +220,7 @@ func main() {
 `
 
 	if showVersion {
-		fmt.Print("hacker-scoper: v6.1.1\n")
+		fmt.Print("hacker-scoper: v6.1.2\n")
 		os.Exit(0)
 	}
 
@@ -283,19 +280,18 @@ func main() {
 
 		// Read all of stdin into targetsInput
 
-		var targetsInput string
-
 		//read stdin
 		scanner := bufio.NewScanner(os.Stdin)
 		for scanner.Scan() {
-			targetsInput += "\n" + scanner.Text()
+			line := scanner.Text()
+			line = strings.TrimSpace(line)
+			if line != "" && !strings.HasPrefix(line, "#") && !strings.HasPrefix(line, "//") {
+				targetsInput = append(targetsInput, line)
+			}
 		}
 		if err := scanner.Err(); err != nil {
 			crash("bufio couldn't read stdin correctly.", err)
 		}
-
-		// Enable this for logging purposes
-		usedstdin = true
 
 	} else if targetsListFilepath != "" {
 		// We didn't get anything from stdin, so we will use the file specified by the user
@@ -316,7 +312,6 @@ func main() {
 			fmt.Println(string(colorRed) + "[-] No input file specified. Please specify a file with the -f or --file argument." + string(colorReset))
 			fmt.Println(string(colorRed) + "[-] Run with \"--help\" for more information." + string(colorReset))
 		}
-		cleanup()
 
 		// Exit code 2 = command line syntax error
 		os.Exit(2)
@@ -424,7 +419,6 @@ func main() {
 			fmt.Println(string(colorRed) + "\t - Doing a manual search at https://firebounty.com")
 			fmt.Println(string(colorRed) + "\t - Loading the scopes manually into '.inscope' and '.noscope' files.")
 			fmt.Println(string(colorRed) + "\t - Loading the scopes manually into custom files, specified with the --inscope-file and --outofscope-file arguments.")
-			cleanup()
 			// Exit code 2 = command line syntax error
 			os.Exit(2)
 		} else if len(matchingCompanyList) > 1 {
@@ -622,7 +616,6 @@ func main() {
 	}
 
 	StopBenchmark()
-	cleanup()
 
 }
 
@@ -676,7 +669,6 @@ func parseScopes(inscopeScopes *[]interface{}, noscopeScopes *[]interface{}, tar
 }
 
 func crash(message string, err error) {
-	cleanup()
 	fmt.Fprintf(os.Stderr, string(colorRed)+"[ERROR]: "+message+string(colorReset)+"\n\n")
 	fmt.Fprintf(os.Stderr, string(colorRed)+"Error stacktrace: "+string(colorReset)+"\n")
 	panic(err)
@@ -741,19 +733,6 @@ func searchForFileBackwards(filename string) (string, error) {
 }
 
 //======================================================================================
-
-func cleanup() {
-	if usedstdin {
-		//Developers using temporary files are expected to clean up after themselves.
-		//https://superuser.com/a/296827
-		_ = targetsListFile.Close()
-		err := os.Remove(targetsListFile.Name())
-		if err != nil {
-			fmt.Fprintf(os.Stderr, string(colorRed)+"[ERROR]: Unable to delete the temporary file at '"+targetsListFile.Name()+"'. Access permissions to this system's temp folder might have changed since the program started running. Make sure to delete the file manually to avoid clutter in your temp directory."+string(colorReset)+"\n")
-			panic(err)
-		}
-	}
-}
 
 // companyIndex is the numeric index of the company in the firebounty database, where 0 is the first company, 1 is the second company, etc
 // Returns an error if no inscopeLines could be detected.
