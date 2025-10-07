@@ -75,7 +75,6 @@ type firebountySearchMatch struct {
 }
 
 var chainMode bool
-var usedstdin bool
 
 const colorReset = "\033[0m"
 const colorYellow = "\033[33m"
@@ -100,7 +99,6 @@ func main() {
 	var scopesListFilepath string
 	var outofScopesListFilepath string
 	var privateTLDsAreEnabled bool
-	usedstdin = false
 
 	const usage = `Hacker-scoper is a GoLang tool designed to assist cybersecurity professionals in bug bounty programs. It identifies and excludes URLs and IP addresses that fall outside a program's scope by comparing input targets (URLs/IPs) against a locally cached [FireBounty](https://firebounty.com) database of scraped scope data. Users may also supply a custom scope list for validation.
 
@@ -285,14 +283,15 @@ func main() {
 		//read stdin
 		scanner := bufio.NewScanner(os.Stdin)
 		for scanner.Scan() {
-			targetsInput = append(targetsInput, scanner.Text())
+			line := scanner.Text()
+			line = strings.TrimSpace(line)
+			if line != "" && !strings.HasPrefix(line, "#") && !strings.HasPrefix(line, "//") {
+				targetsInput = append(targetsInput, line)
+			}
 		}
 		if err := scanner.Err(); err != nil {
 			crash("bufio couldn't read stdin correctly.", err)
 		}
-
-		// Enable this for logging purposes
-		usedstdin = true
 
 	} else if targetsListFilepath != "" {
 		// We didn't get anything from stdin, so we will use the file specified by the user
