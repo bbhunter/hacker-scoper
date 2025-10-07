@@ -28,7 +28,7 @@ var firebountyJSONPath string
 var ErrInvalidFormat = errors.New("invalid format: not IP, CIDR, or URL")
 
 type URLWithIPAddressHost struct {
-	Url    *url.URL
+	rawURL string
 	IPhost net.IP
 }
 
@@ -136,15 +136,15 @@ func main() {
       Path to a custom plaintext file containing scopes exclusions
 
   -e, --explicit-level int
-      How explicit we expect the scopes to be:    
-        1 (default): When handling URLs/domains, include subdomains in the scope even if there's not a wildcard in the scope.    
-        2: When handling URLs/domains, include subdomains in the scope only if there's a wildcard in the scope.    
+      How explicit we expect the scopes to be:
+        1 (default): When handling URLs/domains, include subdomains in the scope even if there's not a wildcard in the scope.
+        2: When handling URLs/domains, include subdomains in the scope only if there's a wildcard in the scope.
         3: Include subdomains/IPs in the scope only if they are explicitly within the scope. CIDR ranges and wildcards are disabled.
 
   -ch, --chain-mode, --plain, --raw, --no-ansi
       In "chain-mode" we only output the important information. No decorations.
 	    Default: false
-	
+
   --database string
       Custom path to the cached firebounty database.
 	  	Default:
@@ -565,7 +565,7 @@ func main() {
 				case *url.URL:
 					target = removePortFromHost(assertedTarget)
 				case *URLWithIPAddressHost:
-					target = removePortFromHost(assertedTarget.Url)
+					target = assertedTarget.IPhost.String()
 				default:
 					// This should handle the "*net.IP" case.
 					target = targetsInput[i]
@@ -880,7 +880,7 @@ func readFileLines(filepath string) ([]string, error) {
 // If isScope is true, ParseLine attempts to parse a string into either:
 // - *net.IPNet		(CIDR notation)
 // - *net.IP		(single IP address)
-// - *url.URL 		(valid URL)
+// - *string 		(hostname of a valid URL)
 // - *regexp.Regexp (Regex)
 // - *WildcardScope (Wildcard Scope)
 //
@@ -965,14 +965,14 @@ func parseLine(line string, isScope bool) (interface{}, error) {
 		// scopes will never be URLs with IP hostnames. It doesn't make sense to check for IP hostnames in URLs for scopes
 		// Try plain IP
 		if ip := net.ParseIP(removePortFromHost(parsedURL)); ip != nil {
-			myURLWithIPHostname := URLWithIPAddressHost{Url: parsedURL, IPhost: ip}
+			myURLWithIPHostname := URLWithIPAddressHost{rawURL: line, IPhost: ip}
 			return &myURLWithIPHostname, nil
 		} else {
 			return parsedURL, nil
 		}
 	} else {
 		if parsedURL.Path == "" || parsedURL.Path == "/" {
-			return parsedURL, nil
+			return removePortFromHost(parsedURL), nil
 		} else {
 			if !chainMode {
 				warning("The text \"" + line + "\" was given as a scope, but it contains the path \"" + parsedURL.Path + "\". In order to properly match paths in your scope you have to use regex. This scope has been ignored.")
@@ -1028,16 +1028,16 @@ func isInscope(inscopeScopes *[]interface{}, target *interface{}, explicitLevel 
 			// We're only interested in comparing URL targets against URL scopes, and regex.
 			switch assertedScope := (*inscopeScopes)[i].(type) {
 			// If the i scope is a URL...
-			case *url.URL:
+			case string:
 				switch *explicitLevel {
 				case 1:
 					//if x is a subdomain of y
 					//ex: wordpress.example.com with a scope of *.example.com will give a match
 					//we DON'T do it by splitting on dots and matching, because that would cause errors with domains that have two top-level-domains (gov.br for example)
-					result = strings.HasSuffix(removePortFromHost(assertedTarget), assertedScope.Host)
+					result = strings.HasSuffix(removePortFromHost(assertedTarget), assertedScope)
 
 				case 2, 3:
-					result = removePortFromHost(assertedTarget) == assertedScope.Host
+					result = removePortFromHost(assertedTarget) == assertedScope
 				}
 
 			case *WildcardScope:
