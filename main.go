@@ -223,7 +223,7 @@ func main() {
 `
 
 	if showVersion {
-		fmt.Print("hacker-scoper: v6.1.0\n")
+		fmt.Print("hacker-scoper: v6.1.1\n")
 		os.Exit(0)
 	}
 
@@ -1190,8 +1190,11 @@ func parseNmapOctet(part string) ([]uint8, error) {
 			if low > high {
 				return nil, errors.New("octet range low > high")
 			}
-			for v := low; v <= high; v++ {
+			for v := low; ; v++ {
 				vals = append(vals, v)
+				if v == high {
+					break
+				}
 			}
 		} else {
 			v, err := strconv.Atoi(seg)
