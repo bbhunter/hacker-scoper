@@ -1190,8 +1190,11 @@ func parseNmapOctet(part string) ([]uint8, error) {
 			if low > high {
 				return nil, errors.New("octet range low > high")
 			}
-			for v := low; v <= high; v++ {
+			for v := low; ; v++ {
 				vals = append(vals, v)
+				if v == high {
+					break
+				}
 			}
 		} else {
 			v, err := strconv.Atoi(seg)
