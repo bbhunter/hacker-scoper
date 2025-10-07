@@ -76,7 +76,6 @@ type firebountySearchMatch struct {
 
 var chainMode bool
 var usedstdin bool
-var targetsListFile *os.File
 
 const colorReset = "\033[0m"
 const colorYellow = "\033[33m"
@@ -283,12 +282,10 @@ func main() {
 
 		// Read all of stdin into targetsInput
 
-		var targetsInput string
-
 		//read stdin
 		scanner := bufio.NewScanner(os.Stdin)
 		for scanner.Scan() {
-			targetsInput += "\n" + scanner.Text()
+			targetsInput = append(targetsInput, scanner.Text())
 		}
 		if err := scanner.Err(); err != nil {
 			crash("bufio couldn't read stdin correctly.", err)
@@ -316,7 +313,6 @@ func main() {
 			fmt.Println(string(colorRed) + "[-] No input file specified. Please specify a file with the -f or --file argument." + string(colorReset))
 			fmt.Println(string(colorRed) + "[-] Run with \"--help\" for more information." + string(colorReset))
 		}
-		cleanup()
 
 		// Exit code 2 = command line syntax error
 		os.Exit(2)
@@ -424,7 +420,6 @@ func main() {
 			fmt.Println(string(colorRed) + "\t - Doing a manual search at https://firebounty.com")
 			fmt.Println(string(colorRed) + "\t - Loading the scopes manually into '.inscope' and '.noscope' files.")
 			fmt.Println(string(colorRed) + "\t - Loading the scopes manually into custom files, specified with the --inscope-file and --outofscope-file arguments.")
-			cleanup()
 			// Exit code 2 = command line syntax error
 			os.Exit(2)
 		} else if len(matchingCompanyList) > 1 {
@@ -622,7 +617,6 @@ func main() {
 	}
 
 	StopBenchmark()
-	cleanup()
 
 }
 
@@ -676,7 +670,6 @@ func parseScopes(inscopeScopes *[]interface{}, noscopeScopes *[]interface{}, tar
 }
 
 func crash(message string, err error) {
-	cleanup()
 	fmt.Fprintf(os.Stderr, string(colorRed)+"[ERROR]: "+message+string(colorReset)+"\n\n")
 	fmt.Fprintf(os.Stderr, string(colorRed)+"Error stacktrace: "+string(colorReset)+"\n")
 	panic(err)
@@ -741,19 +734,6 @@ func searchForFileBackwards(filename string) (string, error) {
 }
 
 //======================================================================================
-
-func cleanup() {
-	if usedstdin {
-		//Developers using temporary files are expected to clean up after themselves.
-		//https://superuser.com/a/296827
-		_ = targetsListFile.Close()
-		err := os.Remove(targetsListFile.Name())
-		if err != nil {
-			fmt.Fprintf(os.Stderr, string(colorRed)+"[ERROR]: Unable to delete the temporary file at '"+targetsListFile.Name()+"'. Access permissions to this system's temp folder might have changed since the program started running. Make sure to delete the file manually to avoid clutter in your temp directory."+string(colorReset)+"\n")
-			panic(err)
-		}
-	}
-}
 
 // companyIndex is the numeric index of the company in the firebounty database, where 0 is the first company, 1 is the second company, etc
 // Returns an error if no inscopeLines could be detected.
