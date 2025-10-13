@@ -13,8 +13,10 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"golang.org/x/net/publicsuffix"
@@ -72,6 +74,12 @@ type Firebounty struct {
 type firebountySearchMatch struct {
 	companyIndex int
 	companyName  string
+}
+
+type parseResult struct {
+	value interface{}
+	line  string
+	err   error
 }
 
 var chainMode bool
@@ -987,24 +995,56 @@ func parseLine(line string, isScope bool) (interface{}, error) {
 func parseAllLines(lines []string, isScopes bool) ([]interface{}, error) {
 	parsed := []interface{}{}
 
-	for i, line := range lines {
-		parsedTemp, err := parseLine(line, isScopes)
-		if err != nil {
-			if !chainMode {
-				warning("Unable to parse line number " + strconv.Itoa(i) + " as a scope: \"" + line + "\"")
-			}
-		} else {
-			parsed = append(parsed, parsedTemp)
-		}
+	numWorkers := runtime.NumCPU()
+	inputChan := make(chan string, numWorkers)
+	outputChan := make(chan parseResult, len(lines))
 
+	var wg sync.WaitGroup
+
+	// Start workers
+	for i := 0; i < numWorkers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for line := range inputChan {
+				result, err := parseLine(line, isScopes)
+				if err != nil {
+					outputChan <- parseResult{value: result, line: line, err: err}
+				} else {
+					outputChan <- parseResult{value: result, line: "", err: err}
+				}
+			}
+		}()
+	}
+
+	// Feed lines to workers
+	go func() {
+		for _, line := range lines {
+			inputChan <- line
+		}
+		close(inputChan)
+	}()
+
+	// Wait for workers to finish
+	go func() {
+		wg.Wait()
+		close(outputChan)
+	}()
+
+	for res := range outputChan {
+		if res.err != nil {
+			if !chainMode {
+				warning("Unable to parse line: \"" + res.line + "\"")
+			}
+		} else if res.value != nil {
+			parsed = append(parsed, res.value)
+		}
 	}
 
 	if len(parsed) == 0 {
 		return nil, errors.New("unable to parse any lines as scopes")
-	} else {
-		return parsed, nil
 	}
-
+	return parsed, nil
 }
 
 func isInscope(inscopeScopes *[]interface{}, target *interface{}, explicitLevel *int) (result bool) {
