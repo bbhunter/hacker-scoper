@@ -76,7 +76,7 @@ Download a pre-built binary from [the releases page](https://github.com/ItsIgnac
 - A: It works by looking for company-name matches in a cached copy of the [firebounty](https://firebounty.com/) database. The company name that you specify will be lowercase'd, and then the tool will check if any company name in the database contains that string. Once it finds a name match, it will filter your supplied targets according to the scopes that firebounty detected for that company. You can test how this would perform by just searching some name in [the firebounty website](https://firebounty.com/).
 
 ## 🤔 Usage
-Usage: hacker-scoper --file /path/to/targets [--company company | --inscopes-file /path/to/inscopes [--outofscopes-file /path/to/outofscopes] [--enable-private-tlds]] [--explicit-level INT] [--chain-mode] [--database /path/to/firebounty.json] [--include-unsure] [--output /path/to/outputfile] [--hostnames-only]
+Usage: hacker-scoper --file /path/to/targets [--company company | --inscopes-file /path/to/inscopes [--outofscopes-file /path/to/outofscopes] [--enable-private-tlds]] [--inscope-explicit-level INT] [--noscope-explicit-level INT] [--chain-mode] [--database /path/to/firebounty.json] [--include-unsure] [--output /path/to/outputfile] [--hostnames-only]
 
 ### Usage examples:
 - Example: Cat a file, and lookup scopes on firebounty
@@ -85,11 +85,11 @@ Usage: hacker-scoper --file /path/to/targets [--company company | --inscopes-fil
 - Example: Cat a file, and use the .inscope & .noscope files
   `cat recon-targets.txt | hacker-scoper`
 
-- Example: Manually pick a file, lookup scopes on firebounty, and set explicit-level
-  `hacker-scoper -f recon-targets.txt -c google -e 2`
+- Example: Manually pick a file, lookup scopes on firebounty, and set inscope explicit-level
+  `hacker-scoper -f recon-targets.txt -c google -ie 2`
 
-- Example: Manually pick a file, use custom scopes and out-of-scope files, and set explicit-level
-  `hacker-scoper -f recon-targets.txt -ins inscope -oos noscope.txt -e 2`
+- Example: Manually pick a file, use custom scopes and out-of-scope files, and set inscope explicit-level
+  `hacker-scoper -f recon-targets.txt -ins inscope -oos noscope.txt -ie 2`
 
 **Usage notes:** If no company and no inscope file are specified, hacker-scoper will look for ".inscope" and ".noscope" files in the current or in parent directories.
 
