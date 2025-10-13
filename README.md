@@ -69,7 +69,7 @@ Download a pre-built binary from [the releases page](https://github.com/ItsIgnac
 <br>
 
 ### Demo with custom scopes file
-[![asciicast](https://asciinema.org/a/SWtH3kLbEOmyPzrGFQe9ic9BB.svg)](https://asciinema.org/a/SWtH3kLbEOmyPzrGFQe9ic9BB)
+[![asciicast](https://asciinema.org/a/f1IU5U2wv37D3YDclA1EBcQ6U.svg)](https://asciinema.org/a/f1IU5U2wv37D3YDclA1EBcQ6U)
 
 ## 🏭 Company scope matching
 - **Q: How does the "company" scope matching actually work?**
