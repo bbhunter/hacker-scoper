@@ -82,6 +82,15 @@ type parseResult struct {
 	err   error
 }
 
+type targetResult struct {
+	index         int
+	parsedTarget  interface{}
+	err           error
+	isInsideScope bool
+	isUnsure      bool
+	targetStr     string
+}
+
 var chainMode bool
 
 const colorReset = "\033[0m"
@@ -551,8 +560,6 @@ func main() {
 	// Variables for writing the output to a file if necessary.
 	var writer *bufio.Writer
 	var f *os.File
-	// Helper variable
-	var target string
 
 	if inscopeOutputFile != "" {
 		f, err := os.OpenFile(inscopeOutputFile, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600) // #nosec G304 -- inscopeOutputFile is a CLI argument specified by the user running the program. It is not unsafe to allow them to open any file in their own system.
@@ -564,33 +571,76 @@ func main() {
 		writer = bufio.NewWriter(f)
 	}
 
-	// Parse all targetsInput lines
-	for i := range targetsInput {
-		parsedTarget, err := parseLine(targetsInput[i], false)
-		if err != nil {
-			warning("Unable to parse the string '" + targetsInput[i] + "' as a target.")
+	// Parse all targetsInput lines concurrently
+	numWorkers := runtime.NumCPU()
+	inputChan := make(chan int, numWorkers)
+	outputChan := make(chan targetResult, len(targetsInput))
+
+	var wg sync.WaitGroup
+
+	for i := 0; i < numWorkers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for idx := range inputChan {
+				parsedTarget, err := parseLine(targetsInput[idx], false)
+				res := targetResult{
+					index:        idx,
+					parsedTarget: parsedTarget,
+					err:          err,
+					targetStr:    targetsInput[idx],
+				}
+				if err == nil {
+					isInsideScope, isUnsure := parseScopes(&inscopeScopes, &noscopeScopes, &parsedTarget, &inscopeExplicitLevel, &noscopeExplicitLevel, includeUnsure)
+					res.isInsideScope = isInsideScope
+					res.isUnsure = isUnsure
+				}
+				outputChan <- res
+			}
+		}()
+	}
+
+	// Feed indices to workers
+	go func() {
+		for i := range targetsInput {
+			inputChan <- i
+		}
+		close(inputChan)
+	}()
+
+	go func() {
+		wg.Wait()
+		close(outputChan)
+	}()
+
+	// Variables for writing the output to a file if necessary.
+	var target string
+	results := make([]targetResult, len(targetsInput))
+	for res := range outputChan {
+		results[res.index] = res
+	}
+
+	// Output results in original order
+	for _, res := range results {
+		if res.err != nil {
+			warning("Unable to parse the string '" + res.targetStr + "' as a target.")
 			continue
 		}
-
-		// "isInsideScope" can't be called "isInscope" because we already have a function with that name.
-		isInsideScope, isUnsure := parseScopes(&inscopeScopes, &noscopeScopes, &parsedTarget, &inscopeExplicitLevel, &noscopeExplicitLevel, includeUnsure)
-
-		if isInsideScope {
+		if res.isInsideScope {
 			if outputDomainsOnly {
-				switch assertedTarget := parsedTarget.(type) {
+				switch assertedTarget := res.parsedTarget.(type) {
 				case *url.URL:
 					target = removePortFromHost(assertedTarget)
 				case *URLWithIPAddressHost:
 					target = assertedTarget.IPhost.String()
 				default:
-					// This should handle the "*net.IP" case.
-					target = targetsInput[i]
+					target = res.targetStr
 				}
 			} else {
-				target = targetsInput[i]
+				target = res.targetStr
 			}
 			if !quietMode {
-				if isUnsure && includeUnsure {
+				if res.isUnsure && includeUnsure {
 					if !chainMode {
 						infoWarning("UNSURE: ", target)
 					} else {
@@ -604,16 +654,15 @@ func main() {
 					}
 				}
 			}
-
 			if inscopeOutputFile != "" {
 				_, err = writer.WriteString(target + "\n")
 				if err != nil {
 					crash("Unable to write to output file", err)
 				}
 			}
-
 		}
 	}
+	// ...existing code...
 
 	if inscopeOutputFile != "" {
 		// Flush any buffered data to disk
