@@ -554,7 +554,7 @@ func main() {
 	// Parse all noscopeLines lines
 	noscopeScopes, err := parseAllLines(noscopeLines, true)
 	if err != nil {
-		crash("Unable to parse any noscope entries as scopes", err)
+		warning("Unable to parse any noscope entries as scopes")
 	}
 
 	// Variables for writing the output to a file if necessary.
