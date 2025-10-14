@@ -62,19 +62,18 @@ type Program struct {
 	Name string
 }
 
-type WhiteLists struct {
-	Regex        string //can't be "*regexp.Regexp" because they're actually domain wildcards
-	Program_slug string
-}
-
-type Firebounty struct {
-	White_listed []WhiteLists
-	Pgms         []Program
-}
-
 type firebountySearchMatch struct {
 	companyIndex int
 	companyName  string
+}
+
+// Define a minimal struct for just the company names
+type PartialProgram struct {
+	Name string `json:"name"`
+}
+
+type PartialFirebounty struct {
+	Pgms []PartialProgram `json:"pgms"`
 }
 
 type parseResult struct {
@@ -400,22 +399,10 @@ func main() {
 			crash("Unable to get information about the database file at \""+firebountyJSONPath+"\". Probably a permissions error with the directory the database is saved at. Try using the database argument like '--database /custom/path/to/store/the/firebounty.json'", err)
 		}
 
-		//open json
-		jsonFile, err := os.Open(firebountyJSONPath) // #nosec G304 -- firebountyJSONPath is a CLI argument specified by the user running the program. It is not unsafe to allow them to open any file in their own system.
+		// Get the company names from the JSON file
+		companyNames, err := extractCompanyNames(firebountyJSONPath)
 		if err != nil {
-			crash("Couldn't open firebounty JSON. Maybe run \"chmod 777 "+firebountyJSONPath+"\"? ", err)
-		}
-
-		//read the json file as bytes
-		byteValue, _ := io.ReadAll(jsonFile)
-		jsonFile.Close() // #nosec G104 -- No need to worry about double-closing issues, as the file is closed right after reading it.
-
-		var firebountyJSON Firebounty
-		// TODO: Optimize this by using Partial JSON Processing
-		// https://dev.to/aaravjoshi/boosting-golang-json-performance-10-proven-techniques-for-high-speed-processing-4f9m#partial-json-processing
-		err = json.Unmarshal(byteValue, &firebountyJSON)
-		if err != nil {
-			crash("Couldn't parse firebountyJSON into pre-defined struct.", err)
+			crash("Couldn't parse company names from firebounty JSON.", err)
 		}
 
 		var matchingCompanyList []firebountySearchMatch
@@ -424,10 +411,10 @@ func main() {
 		var userChoiceAsInt int
 
 		//for every company...
-		for companyCounter := 0; companyCounter < len(firebountyJSON.Pgms); companyCounter++ {
-			fcompany := strings.ToLower(firebountyJSON.Pgms[companyCounter].Name)
+		for i, fcompany := range companyNames {
+			fcompany := strings.ToLower(fcompany)
 			if strings.Contains(fcompany, company) {
-				matchingCompanyList = append(matchingCompanyList, firebountySearchMatch{companyCounter, firebountyJSON.Pgms[companyCounter].Name})
+				matchingCompanyList = append(matchingCompanyList, firebountySearchMatch{i, fcompany})
 			}
 		}
 		if len(matchingCompanyList) == 0 && !chainMode {
@@ -484,7 +471,7 @@ func main() {
 
 					//Load the matchingCompanyList 2D slice, and convert the first member from string to integer, and save the company index
 					companyIndex := matchingCompanyList[i].companyIndex
-					tempinscopeLines, tempnoscopeLines, err := getCompanyScopes(&firebountyJSON, &companyIndex, privateTLDsAreEnabled)
+					tempinscopeLines, tempnoscopeLines, err := getCompanyScopes(firebountyJSONPath, &companyIndex, privateTLDsAreEnabled)
 					if err != nil {
 						crash("Error parsing the company "+company, err)
 					}
@@ -497,7 +484,7 @@ func main() {
 				// The user chose a specific company
 				// Use userChoiceAsInt as an index for the matchingCompanyList 2D slice, and save the company index
 				companyCounter := matchingCompanyList[userChoiceAsInt].companyIndex
-				inscopeLines, noscopeLines, err = getCompanyScopes(&firebountyJSON, &companyCounter, privateTLDsAreEnabled)
+				inscopeLines, noscopeLines, err = getCompanyScopes(firebountyJSONPath, &companyCounter, privateTLDsAreEnabled)
 				if err != nil {
 					crash("Error parsing the company "+company, err)
 				}
@@ -506,9 +493,9 @@ func main() {
 		} else {
 			//Only 1 company matched the query
 			if !chainMode {
-				fmt.Print("[+] Search for \"" + company + "\" matched the company " + string(colorGreen) + firebountyJSON.Pgms[matchingCompanyList[0].companyIndex].Name + string(colorReset) + "!\n")
+				fmt.Print("[+] Search for \"" + company + "\" matched the company " + string(colorGreen) + matchingCompanyList[0].companyName + string(colorReset) + "!\n")
 			}
-			inscopeLines, noscopeLines, err = getCompanyScopes(&firebountyJSON, &matchingCompanyList[0].companyIndex, privateTLDsAreEnabled)
+			inscopeLines, noscopeLines, err = getCompanyScopes(firebountyJSONPath, &matchingCompanyList[0].companyIndex, privateTLDsAreEnabled)
 			if err != nil {
 				crash("Error parsing the company "+company, err)
 			}
@@ -795,7 +782,12 @@ func searchForFileBackwards(filename string) (string, error) {
 // companyIndex is the numeric index of the company in the firebounty database, where 0 is the first company, 1 is the second company, etc
 // Returns an error if no inscopeLines could be detected.
 // Does not return an error if no noscopeLines could be detected.
-func getCompanyScopes(firebountyJSON *Firebounty, companyIndex *int, privateTLDsAreEnabled bool) (inscopeLines []string, noscopeLines []string, err error) {
+func getCompanyScopes(firebountyJSONPath string, companyIndex *int, privateTLDsAreEnabled bool) (inscopeLines []string, noscopeLines []string, err error) {
+
+	prog, err := loadProgramByIndex(firebountyJSONPath, *companyIndex)
+	if err != nil {
+		crash("Couldn't load full program data", err)
+	}
 
 	//match found!
 	if !chainMode {
@@ -814,18 +806,18 @@ func getCompanyScopes(firebountyJSON *Firebounty, companyIndex *int, privateTLDs
 		fmt.Println("[+] Last updated: " + lastUpdated)
 
 		// Print the details of the matched company in a readable format
-		fmt.Println("[+] Firebounty URL: " + firebountyJSON.Pgms[*companyIndex].Firebounty_url)
-		fmt.Println("[+] Program URL: " + firebountyJSON.Pgms[*companyIndex].Url)
+		fmt.Println("[+] Firebounty URL: " + prog.Firebounty_url)
+		fmt.Println("[+] Program URL: " + prog.Url)
 
 		// Print the in-scope rules
 		fmt.Println("[+] In-scope rules: ")
-		for _, inscope := range firebountyJSON.Pgms[*companyIndex].Scopes.In_scopes {
+		for _, inscope := range prog.Scopes.In_scopes {
 			fmt.Println("\t[+] " + inscope.Scope_type + ": " + inscope.Scope)
 		}
 
 		// Print the out-of-scope rules
 		fmt.Println("\n[+] Out-of-scope rules: ")
-		for _, noscope := range firebountyJSON.Pgms[*companyIndex].Scopes.Out_of_scopes {
+		for _, noscope := range prog.Scopes.Out_of_scopes {
 			fmt.Println("\t[+] " + noscope.Scope_type + ": " + noscope.Scope)
 		}
 
@@ -834,11 +826,11 @@ func getCompanyScopes(firebountyJSON *Firebounty, companyIndex *int, privateTLDs
 	}
 
 	//for every InScope Scope in the program
-	for inscopeCounter := 0; inscopeCounter < len(firebountyJSON.Pgms[*companyIndex].Scopes.In_scopes); inscopeCounter++ {
+	for inscopeCounter := 0; inscopeCounter < len(prog.Scopes.In_scopes); inscopeCounter++ {
 		//if the scope type is "web_application" and it's not empty
-		if firebountyJSON.Pgms[*companyIndex].Scopes.In_scopes[inscopeCounter].Scope_type == "web_application" && firebountyJSON.Pgms[*companyIndex].Scopes.In_scopes[inscopeCounter].Scope != "" {
+		if prog.Scopes.In_scopes[inscopeCounter].Scope_type == "web_application" && prog.Scopes.In_scopes[inscopeCounter].Scope != "" {
 
-			rawInScope := firebountyJSON.Pgms[*companyIndex].Scopes.In_scopes[inscopeCounter].Scope
+			rawInScope := prog.Scopes.In_scopes[inscopeCounter].Scope
 
 			// TODO: Optimize this. It's very inneficient to be parsing this line twice. parseLine is already called within isAndroidPackageName, so we shouldn't call it again, that's redundant.
 			if !isAndroidPackageName(&rawInScope, privateTLDsAreEnabled) {
@@ -849,15 +841,15 @@ func getCompanyScopes(firebountyJSON *Firebounty, companyIndex *int, privateTLDs
 	}
 
 	if len(inscopeLines) == 0 {
-		return nil, nil, errors.New("Unable to parse any inscopes scopes from " + firebountyJSON.Pgms[*companyIndex].Name)
+		return nil, nil, errors.New("Unable to parse any inscopes scopes from " + prog.Name)
 	}
 
 	//for every NoScope Scope in the program
-	for noscopeCounter := 0; noscopeCounter < len(firebountyJSON.Pgms[*companyIndex].Scopes.Out_of_scopes); noscopeCounter++ {
+	for noscopeCounter := 0; noscopeCounter < len(prog.Scopes.Out_of_scopes); noscopeCounter++ {
 		//if the scope type is "web_application" and it's not empty
-		if firebountyJSON.Pgms[*companyIndex].Scopes.Out_of_scopes[noscopeCounter].Scope_type == "web_application" && firebountyJSON.Pgms[*companyIndex].Scopes.Out_of_scopes[noscopeCounter].Scope != "" {
+		if prog.Scopes.Out_of_scopes[noscopeCounter].Scope_type == "web_application" && prog.Scopes.Out_of_scopes[noscopeCounter].Scope != "" {
 
-			rawNoScope := firebountyJSON.Pgms[*companyIndex].Scopes.Out_of_scopes[noscopeCounter].Scope
+			rawNoScope := prog.Scopes.Out_of_scopes[noscopeCounter].Scope
 
 			if !isAndroidPackageName(&rawNoScope, privateTLDsAreEnabled) {
 				noscopeLines = append(noscopeLines, rawNoScope)
@@ -1280,4 +1272,66 @@ func parseNmapOctet(part string) ([]uint8, error) {
 		}
 	}
 	return vals, nil
+}
+
+// Function to extract company names only
+func extractCompanyNames(jsonPath string) ([]string, error) {
+	file, err := os.Open(jsonPath)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	var partial PartialFirebounty
+	decoder := json.NewDecoder(file)
+	if err := decoder.Decode(&partial); err != nil {
+		return nil, err
+	}
+
+	names := make([]string, len(partial.Pgms))
+	for i, p := range partial.Pgms {
+		names[i] = p.Name
+	}
+	return names, nil
+}
+
+// Efficiently load a single Program by index from the firebounty JSON
+func loadProgramByIndex(jsonPath string, index int) (*Program, error) {
+	file, err := os.Open(jsonPath)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	// Create a decoder and seek to the "pgms" array
+	decoder := json.NewDecoder(file)
+
+	// Advance to the "pgms" key
+	for {
+		t, err := decoder.Token()
+		if err != nil {
+			return nil, err
+		}
+		if t == "pgms" {
+			break
+		}
+	}
+
+	// Read the start of the array
+	if _, err := decoder.Token(); err != nil { // should be json.Delim('[')
+		return nil, err
+	}
+
+	// Iterate through the array until the desired index
+	for i := 0; decoder.More(); i++ {
+		var prog Program
+		if err := decoder.Decode(&prog); err != nil {
+			return nil, err
+		}
+		if i == index {
+			return &prog, nil
+		}
+	}
+
+	return nil, errors.New("program index out of range")
 }
