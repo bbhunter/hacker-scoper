@@ -18,6 +18,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 
 	"golang.org/x/net/publicsuffix"
 )
@@ -1211,6 +1212,12 @@ func isNmapIPRange(line string) bool {
 	if strings.Count(line, ".") != 3 {
 		return false
 	}
+
+	// Return false if line contains any a-z or A-Z letters
+	if strings.IndexFunc(line, unicode.IsLetter) != -1 {
+		return false
+	}
+
 	return strings.ContainsAny(line, "-,")
 }
 
