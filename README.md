@@ -105,12 +105,12 @@ Usage: hacker-scoper --file /path/to/targets [--company company | --inscopes-fil
 | -ie<br>-oe | --inscope-explicit-level int<br>--noscope-explicit-level  int|  How explicit we expect the scopes to be:    <br> 1 (default): Include subdomains in the scope even if there's not a wildcard in the scope.    <br> 2: Include subdomains in the scope only if there's a wildcard in the scope.    <br> 3: Include subdomains/IPs in the scope only if they are explicitly within the scope. CIDR ranges and wildcards are disabled. |
 |  | --enable-private-tlds | Set this flag to enable the use of company scope domains with private TLDs. This essentially disables the bug-bounty-program misconfiguration detection. |
 | -ch | --chain-mode |  In "chain-mode" we only output the important information. No decorations. Default: false |
-| --database |  | Custom path to the cached firebounty database |
+|  | --database | Custom path to the cached firebounty database |
 | -iu | --include-unsure |  Include "unsure" assets in the output. An unsure asset is an asset that's not in scope, but is also not out of scope. Very probably unrelated to the bug bounty program. |
 | -o | --output |  Save the inscope assets to a file |
 |    | --quiet | Disable command-line output. |
 | -ho | --hostnames-only | When handling URLs, output only their hostnames instead of the full URLs |
-| --version |  | Show the installed version |
+|  | --version | Show the installed version |
 |_______________|_____________________________| _____________________________________ |
 
 list example:
