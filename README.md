@@ -35,7 +35,7 @@ This project is developed and maintained by [ItsIgnacioPortal](https://github.co
 
 - **Compatible**: Hacker-Scoper is compatible with Windows, Linux and MacOS in all architectures.
 
-- **Flexible**: For any companies with vaguely defined scopes, you can enable or disable scope wildcard/CIDR parsing using the command-line argument `-e`/`--explicit-level`.
+- **Flexible**: For any companies with vaguely defined scopes, you can enable or disable scope wildcard/CIDR parsing using the command-line argument `-ie`/`--inscope-explicit-level`.
 
 - **Misconfiguration detection**: Using TLD-Based detection, hacker-scoper can automatically detect misconfigurations in bug-bounty program scopes. For example: Sometimes bug bounty programs set APK package names such as `com.my.businness.gatewayportal` as `web_application` resources instead of as `android_application` resources in their program scope, causing trouble for anyone using automatic tools. Hacker-Scoper automatically detects these errors and notifies the user.
 
