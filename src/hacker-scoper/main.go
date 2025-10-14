@@ -883,8 +883,8 @@ func isAndroidPackageName(rawScope *string, privateTLDsAreEnabled bool) bool {
 	// TODO: Split parseLine into 3 functions, so we can directly try to parse the rawScope as a URL rather than wasting CPU cycles trying to parse CIDR Range -> IP Address -> URL.
 	inscope, err := parseLine(*rawScope, true)
 
-	if err != nil && !chainMode {
-		warning("Error parsing \"" + *rawScope + "\".")
+	if err != nil {
+		return false
 	} else if _, inscopeIsURL := inscope.(*url.URL); inscopeIsURL {
 		// If the type of inscope is *url.URL ...
 		portlessHostofCurrentTarget := removePortFromHost(inscope.(*url.URL))
