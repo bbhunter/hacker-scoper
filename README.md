@@ -35,7 +35,9 @@ This project is developed and maintained by [ItsIgnacioPortal](https://github.co
 
 - **Compatible**: Hacker-Scoper is compatible with Windows, Linux and MacOS in all architectures.
 
-- **Flexible**: For any companies with vaguely defined scopes, you can enable or disable scope wildcard/CIDR parsing using the command-line argument `-e`/`--explicit-level`.
+- **Blazing-fast**: Hacker-Scoper is extremely fast at processing targets, as it leverages several optimization techniques as well as built-in multithreading.
+
+- **Flexible**: For any companies with vaguely defined scopes, you can enable or disable scope wildcard/CIDR parsing using the command-line argument `-ie`/`--inscope-explicit-level`.
 
 - **Misconfiguration detection**: Using TLD-Based detection, hacker-scoper can automatically detect misconfigurations in bug-bounty program scopes. For example: Sometimes bug bounty programs set APK package names such as `com.my.businness.gatewayportal` as `web_application` resources instead of as `android_application` resources in their program scope, causing trouble for anyone using automatic tools. Hacker-Scoper automatically detects these errors and notifies the user.
 
@@ -62,14 +64,14 @@ Download a pre-built binary from [the releases page](https://github.com/ItsIgnac
 ## 🎥 Demos
 
 ### Demo with company lookup
-[![asciicast](https://asciinema.org/a/WMeGitIu0VEjaFQrbv45fjhJG.svg)](https://asciinema.org/a/WMeGitIu0VEjaFQrbv45fjhJG)
+[![asciicast](https://asciinema.org/a/llZUBG5BC754rA2yy0Gx7EBqg.svg)](https://asciinema.org/a/llZUBG5BC754rA2yy0Gx7EBqg)
 <br>
 <br>
 <br>
 <br>
 
 ### Demo with custom scopes file
-[![asciicast](https://asciinema.org/a/SWtH3kLbEOmyPzrGFQe9ic9BB.svg)](https://asciinema.org/a/SWtH3kLbEOmyPzrGFQe9ic9BB)
+[![asciicast](https://asciinema.org/a/f1IU5U2wv37D3YDclA1EBcQ6U.svg)](https://asciinema.org/a/f1IU5U2wv37D3YDclA1EBcQ6U)
 
 ## 🏭 Company scope matching
 - **Q: How does the "company" scope matching actually work?**
@@ -103,12 +105,12 @@ Usage: hacker-scoper --file /path/to/targets [--company company | --inscopes-fil
 | -ie<br>-oe | --inscope-explicit-level int<br>--noscope-explicit-level  int|  How explicit we expect the scopes to be:    <br> 1 (default): Include subdomains in the scope even if there's not a wildcard in the scope.    <br> 2: Include subdomains in the scope only if there's a wildcard in the scope.    <br> 3: Include subdomains/IPs in the scope only if they are explicitly within the scope. CIDR ranges and wildcards are disabled. |
 |  | --enable-private-tlds | Set this flag to enable the use of company scope domains with private TLDs. This essentially disables the bug-bounty-program misconfiguration detection. |
 | -ch | --chain-mode |  In "chain-mode" we only output the important information. No decorations. Default: false |
-| --database |  | Custom path to the cached firebounty database |
+|  | --database | Custom path to the cached firebounty database |
 | -iu | --include-unsure |  Include "unsure" assets in the output. An unsure asset is an asset that's not in scope, but is also not out of scope. Very probably unrelated to the bug bounty program. |
 | -o | --output |  Save the inscope assets to a file |
 |    | --quiet | Disable command-line output. |
 | -ho | --hostnames-only | When handling URLs, output only their hostnames instead of the full URLs |
-| --version |  | Show the installed version |
+|  | --version | Show the installed version |
 |_______________|_____________________________| _____________________________________ |
 
 list example:
