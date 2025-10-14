@@ -1276,7 +1276,7 @@ func parseNmapOctet(part string) ([]uint8, error) {
 
 // Function to extract company names only
 func extractCompanyNames(jsonPath string) ([]string, error) {
-	file, err := os.Open(jsonPath)
+	file, err := os.Open(jsonPath)  // #nosec G304 -- Intended behavior
 	if err != nil {
 		return nil, err
 	}
@@ -1297,7 +1297,7 @@ func extractCompanyNames(jsonPath string) ([]string, error) {
 
 // Efficiently load a single Program by index from the firebounty JSON
 func loadProgramByIndex(jsonPath string, index int) (*Program, error) {
-	file, err := os.Open(jsonPath)
+	file, err := os.Open(jsonPath)  // #nosec G304 -- Intended behavior
 	if err != nil {
 		return nil, err
 	}
