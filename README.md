@@ -62,7 +62,7 @@ Download a pre-built binary from [the releases page](https://github.com/ItsIgnac
 ## 🎥 Demos
 
 ### Demo with company lookup
-[![asciicast](https://asciinema.org/a/WMeGitIu0VEjaFQrbv45fjhJG.svg)](https://asciinema.org/a/WMeGitIu0VEjaFQrbv45fjhJG)
+[![asciicast](https://asciinema.org/a/llZUBG5BC754rA2yy0Gx7EBqg.svg)](https://asciinema.org/a/llZUBG5BC754rA2yy0Gx7EBqg)
 <br>
 <br>
 <br>
