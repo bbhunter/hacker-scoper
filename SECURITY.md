@@ -6,9 +6,8 @@ Only the versions specified in this table receive security updates. If you're us
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 4.0.x   | :white_check_mark: |
-| 3.0.x   | :white_check_mark: |
-| < 3.0.0 | :x:                |
+| 6.x.x   | :white_check_mark: |
+| < 6.0.0 | :x:                |
 
 ## Reporting a Vulnerability
 
