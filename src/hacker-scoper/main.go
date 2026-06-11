@@ -329,8 +329,8 @@ func main() {
 		// Print a usage warning, then quit gracefully
 
 		if !chainMode {
-			fmt.Println(string(colorRed) + "[-] No input file specified. Please specify a file with the -f or --file argument." + string(colorReset))
-			fmt.Println(string(colorRed) + "[-] Run with \"--help\" for more information." + string(colorReset))
+			fmt.Println(colorRed + "[-] No input file specified. Please specify a file with the -f or --file argument." + colorReset)
+			fmt.Println(colorRed + "[-] Run with \"--help\" for more information." + colorReset)
 		}
 
 		// Exit code 2 = command line syntax error
@@ -345,7 +345,7 @@ func main() {
 		// If the user didn't specify a company name, and also didn't specify a filepath for the inscope and outofscope files, we'll search for .inscope and .noscope files.
 
 		if !chainMode {
-			fmt.Print("No company or scopes file specified. Looking for \".inscope\" and \".noscope\" files..." + "\n")
+			fmt.Println("No company or scopes file specified. Looking for \".inscope\" and \".noscope\" files...")
 		}
 
 		//look for .inscope file
@@ -355,7 +355,7 @@ func main() {
 		}
 
 		if !chainMode {
-			fmt.Print(".inscope found. Using " + inscopePath + "\n")
+			fmt.Println(".inscope found. Using " + inscopePath)
 		}
 
 		//look for .noscope file
@@ -363,7 +363,7 @@ func main() {
 		if err != nil {
 			noscopePath = ""
 		} else if !chainMode {
-			fmt.Print(".noscope found. Using " + noscopePath + "\n")
+			fmt.Println(".noscope found. Using " + noscopePath)
 		}
 
 		// Load the inscope file into memory
@@ -425,12 +425,12 @@ func main() {
 			}
 		}
 		if len(matchingCompanyList) == 0 && !chainMode {
-			fmt.Println(string(colorRed) + "[-] 0 (lowercase'd) company names contained the string \"" + company + "\"" + string(colorReset))
-			fmt.Println(string(colorRed) + "[-] If the company's bug bounty program is private, consider using rescope to download the scopes: https://github.com/root4loot/rescope")
-			fmt.Println(string(colorRed) + "[-] If the company's bug bounty program is public, consider either of these options:")
-			fmt.Println(string(colorRed) + "\t - Doing a manual search at https://firebounty.com")
-			fmt.Println(string(colorRed) + "\t - Loading the scopes manually into '.inscope' and '.noscope' files.")
-			fmt.Println(string(colorRed) + "\t - Loading the scopes manually into custom files, specified with the --inscope-file and --outofscope-file arguments.")
+			fmt.Println(colorRed + "[-] 0 (lowercase'd) company names contained the string \"" + company + "\"" + colorReset)
+			fmt.Println(colorRed + "[-] If the company's bug bounty program is private, consider using rescope to download the scopes: https://github.com/root4loot/rescope")
+			fmt.Println(colorRed + "[-] If the company's bug bounty program is public, consider either of these options:")
+			fmt.Println(colorRed + "\t - Doing a manual search at https://firebounty.com")
+			fmt.Println(colorRed + "\t - Loading the scopes manually into '.inscope' and '.noscope' files.")
+			fmt.Println(colorRed + "\t - Loading the scopes manually into custom files, specified with the --inscope-file and --outofscope-file arguments.")
 			// Exit code 2 = command line syntax error
 			os.Exit(2)
 		} else if len(matchingCompanyList) > 1 {
@@ -500,7 +500,7 @@ func main() {
 		} else {
 			//Only 1 company matched the query
 			if !chainMode {
-				fmt.Print("[+] Search for \"" + company + "\" matched the company " + string(colorGreen) + matchingCompanyList[0].companyName + string(colorReset) + "!\n")
+				fmt.Println("[+] Search for \"" + company + "\" matched the company " + colorGreen + matchingCompanyList[0].companyName + colorReset + "!")
 			}
 			inscopeLines, noscopeLines, err = getCompanyScopes(firebountyJSONPath, &matchingCompanyList[0].companyIndex, privateTLDsAreEnabled)
 			if err != nil {
@@ -697,21 +697,22 @@ func parseScopes(inscopeScopes *[]interface{}, noscopeScopes *[]interface{}, tar
 }
 
 func crash(message string, err error) {
-	fmt.Fprintf(os.Stderr, string(colorRed)+"[ERROR]: "+message+string(colorReset)+"\n\n")
-	fmt.Fprintf(os.Stderr, string(colorRed)+"Error stacktrace: "+string(colorReset)+"\n")
+	fmt.Fprintln(os.Stderr, colorRed+"[ERROR]: "+message+colorReset)
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, colorRed+"Error stacktrace: "+colorReset)
 	panic(err)
 }
 
 func warning(message string) {
-	fmt.Fprintf(os.Stderr, string(colorYellow)+"[WARNING]: "+message+string(colorReset)+"\n")
+	fmt.Fprintln(os.Stderr, colorYellow+"[WARNING]: "+message+colorReset)
 }
 
 func infoGood(prefix string, message string) {
-	fmt.Print(string(colorGreen) + "[+] " + prefix + string(colorReset) + message + "\n")
+	fmt.Println(colorGreen + "[+] " + prefix + colorReset + message)
 }
 
 func infoWarning(prefix string, message string) {
-	fmt.Print(string(colorYellow) + "[-] " + prefix + string(colorReset) + message + "\n")
+	fmt.Println(colorYellow + "[-] " + prefix + colorReset + message)
 }
 
 func removePortFromHost(myurl *url.URL) string {
