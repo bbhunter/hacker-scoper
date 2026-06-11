@@ -478,7 +478,7 @@ func main() {
 
 					//Load the matchingCompanyList 2D slice, and convert the first member from string to integer, and save the company index
 					companyIndex := matchingCompanyList[i].companyIndex
-					tempinscopeLines, tempnoscopeLines, err := getCompanyScopes(firebountyJSONPath, &companyIndex, privateTLDsAreEnabled)
+					tempinscopeLines, tempnoscopeLines, err := getCompanyScopes(firebountyJSONPath, &companyIndex)
 					if err != nil {
 						crash("Error parsing the company "+company, err)
 					}
@@ -491,7 +491,7 @@ func main() {
 				// The user chose a specific company
 				// Use userChoiceAsInt as an index for the matchingCompanyList 2D slice, and save the company index
 				companyCounter := matchingCompanyList[userChoiceAsInt].companyIndex
-				inscopeLines, noscopeLines, err = getCompanyScopes(firebountyJSONPath, &companyCounter, privateTLDsAreEnabled)
+				inscopeLines, noscopeLines, err = getCompanyScopes(firebountyJSONPath, &companyCounter)
 				if err != nil {
 					crash("Error parsing the company "+company, err)
 				}
@@ -502,7 +502,7 @@ func main() {
 			if !chainMode {
 				fmt.Println("[+] Search for \"" + company + "\" matched the company " + colorGreen + matchingCompanyList[0].companyName + colorReset + "!")
 			}
-			inscopeLines, noscopeLines, err = getCompanyScopes(firebountyJSONPath, &matchingCompanyList[0].companyIndex, privateTLDsAreEnabled)
+			inscopeLines, noscopeLines, err = getCompanyScopes(firebountyJSONPath, &matchingCompanyList[0].companyIndex)
 			if err != nil {
 				crash("Error parsing the company "+company, err)
 			}
@@ -544,13 +544,13 @@ func main() {
 	StartBenchmark("2")
 
 	// Parse all inscopeLines lines
-	inscopeScopes, err := parseAllLines(inscopeLines, true)
+	inscopeScopes, err := parseAllLines(inscopeLines, true, privateTLDsAreEnabled)
 	if err != nil {
 		crash("Unable to parse any inscope entries as scopes", err)
 	}
 
 	// Parse all noscopeLines lines
-	noscopeScopes, err := parseAllLines(noscopeLines, true)
+	noscopeScopes, err := parseAllLines(noscopeLines, true, privateTLDsAreEnabled)
 	if err != nil {
 		warning("Unable to parse any noscope entries as scopes")
 	}
@@ -579,7 +579,7 @@ func main() {
 		go func() {
 			defer wg.Done()
 			for line := range streamedLinesChan {
-				parsedTarget, err := parseLine(line, false)
+				parsedTarget, err := parseLine(line, false, privateTLDsAreEnabled)
 				res := targetResult{
 					parsedTarget: parsedTarget,
 					err:          err,
@@ -765,7 +765,7 @@ func searchForFileBackwards(filename string) (string, error) {
 // companyIndex is the numeric index of the company in the firebounty database, where 0 is the first company, 1 is the second company, etc
 // Returns an error if no inscopeLines could be detected.
 // Does not return an error if no noscopeLines could be detected.
-func getCompanyScopes(firebountyJSONPath string, companyIndex *int, privateTLDsAreEnabled bool) (inscopeLines []string, noscopeLines []string, err error) {
+func getCompanyScopes(firebountyJSONPath string, companyIndex *int) (inscopeLines []string, noscopeLines []string, err error) {
 
 	prog, err := loadProgramByIndex(firebountyJSONPath, *companyIndex)
 	if err != nil {
@@ -814,11 +814,7 @@ func getCompanyScopes(firebountyJSONPath string, companyIndex *int, privateTLDsA
 		if prog.Scopes.In_scopes[inscopeCounter].Scope_type == "web_application" && prog.Scopes.In_scopes[inscopeCounter].Scope != "" {
 
 			rawInScope := prog.Scopes.In_scopes[inscopeCounter].Scope
-
-			// TODO: Optimize this. It's very inefficient to be parsing this line twice. parseLine is already called within isAndroidPackageName, so we shouldn't call it again, that's redundant.
-			if !isAndroidPackageName(&rawInScope, privateTLDsAreEnabled) {
-				inscopeLines = append(inscopeLines, rawInScope)
-			}
+			inscopeLines = append(inscopeLines, rawInScope)
 
 		}
 	}
@@ -833,57 +829,12 @@ func getCompanyScopes(firebountyJSONPath string, companyIndex *int, privateTLDsA
 		if prog.Scopes.Out_of_scopes[noscopeCounter].Scope_type == "web_application" && prog.Scopes.Out_of_scopes[noscopeCounter].Scope != "" {
 
 			rawNoScope := prog.Scopes.Out_of_scopes[noscopeCounter].Scope
-
-			if !isAndroidPackageName(&rawNoScope, privateTLDsAreEnabled) {
-				noscopeLines = append(noscopeLines, rawNoScope)
-			}
+			noscopeLines = append(noscopeLines, rawNoScope)
 
 		}
 	}
 
 	return inscopeLines, noscopeLines, nil
-}
-
-// This function receives a raw scope string, and returns true if it's an android package name.
-// It's goal is to help detect any misconfigured bug-bounty programs
-// Only scopes that have the type "web_application" but that we aren't sure if they are actually web_application resources should be sent into this function.
-// Sometimes bug bounty programs set APK package names such as com.my.business.gatewayportal as web_application resources instead of as android_application resources in their program scope, causing trouble for anyone using automatic tools. Hacker-Scoper automatically detects these errors and notifies the user.
-func isAndroidPackageName(rawScope *string, privateTLDsAreEnabled bool) bool {
-
-	if privateTLDsAreEnabled {
-		return privateTLDsAreEnabled
-	}
-
-	// We begin the detection by trying to parse the given scope as an actual scope.
-	// The problem with url.Parse is that it rarely returns an error. It often times assumes that invalid domain names (such as "this.is.not.avaliddomain") actually have a "private Top-Level-Domain". This is extremely unlikely in reality
-	// TODO: Split parseLine into 3 functions, so we can directly try to parse the rawScope as a URL rather than wasting CPU cycles trying to parse CIDR Range -> IP Address -> URL.
-	inscope, err := parseLine(*rawScope, true)
-
-	if err != nil {
-		return false
-	} else if _, inscopeIsURL := inscope.(*url.URL); inscopeIsURL {
-		// If the type of inscope is *url.URL ...
-		portlessHostofCurrentTarget := removePortFromHost(inscope.(*url.URL))
-
-		//alert the user about potentially mis-configured bug-bounty program
-		_, scopeHasValidTLD := publicsuffix.PublicSuffix(portlessHostofCurrentTarget)
-
-		if !chainMode {
-			//alert the user about potentially mis-configured bug-bounty program
-			if (*rawScope)[0:4] == "com." || (*rawScope)[0:4] == "org." {
-				warning("The scope \"" + *rawScope + "\" starts with \"com.\" or \"org.\" This may be a sign of a misconfigured bug bounty program. Consider editing the \"" + firebountyJSONPath + " file and removing the faulty entries. Also, report the failure to the maintainers of the bug bounty program.")
-			}
-		}
-
-		if !scopeHasValidTLD && inscope.(*url.URL).Host != "" {
-			if !chainMode {
-				warning("The scope \"" + *rawScope + "\" does not have a public Top Level Domain (TLD). This may be a sign of a misconfigured bug bounty program. Consider editing the \"" + firebountyJSONPath + " file and removing the faulty entries. Also, report the failure to the maintainers of the bug bounty program.")
-			}
-			return true
-		}
-	}
-
-	return false
 }
 
 // This function receives a filepath as a string, and returns a string with the contents of the file
@@ -949,7 +900,7 @@ func streamFileLines(filepath string) (<-chan string, error) {
 // - *URLWithIPAddressHost	(URL that has an IP host)
 //
 // This function returns the error ErrInvalidFormat if the string didn't match any of the listed formats.
-func parseLine(line string, isScope bool) (interface{}, error) {
+func parseLine(line string, isScope bool, privateTLDsAreEnabled bool) (interface{}, error) {
 
 	// TODO: Add a --optimize flag that when enabled will save all of the inscope, and noscope scopes in a separate file, with their type already determined, so we don't have to waste time guessing the scope type every time hacker-scoper is run. Maybe in CSV format. We could also use the file last-modified-at metadata to know whether the .inscope and .noscope files were modified. The --optimize flag should only have an effect when hacker-scoper is ran with .inscope and .noscope files, or with the firebounty db.It wouldn't make sense to optimize the input of stdin.
 
@@ -1031,7 +982,32 @@ func parseLine(line string, isScope bool) (interface{}, error) {
 		}
 	} else {
 		if parsedURL.Path == "" || parsedURL.Path == "/" {
-			return removePortFromHost(parsedURL), nil
+
+			// This should help detect any misconfigured bug-bounty programs
+			// Sometimes bug bounty programs set APK package names such as com.my.business.gatewayportal as web_application resources instead of as android_application resources in their program scope, causing trouble for anyone using automatic tools. Hacker-Scoper automatically detects these errors and notifies the user.
+			// The problem with url.Parse is that it rarely returns an error. It often times assumes that invalid domain names (such as "this.is.not.avaliddomain") actually have a "private Top-Level-Domain". This is extremely unlikely in reality
+			portless := removePortFromHost(parsedURL)
+			if !privateTLDsAreEnabled {
+
+				_, scopeHasValidTLD := publicsuffix.PublicSuffix(portless)
+
+				if !chainMode {
+					//alert the user about potentially mis-configured bug-bounty program
+					if line[0:4] == "com." || line[0:4] == "org." {
+						warning("The scope \"" + line + "\" starts with \"com.\" or \"org.\" This may be a sign of a misconfigured bug bounty program. Consider editing the \"" + firebountyJSONPath + " file and removing the faulty entries. Also, report the failure to the maintainers of the bug bounty program.")
+					}
+				}
+
+				if !scopeHasValidTLD && parsedURL.Host != "" {
+					if !chainMode {
+						warning("The scope \"" + line + "\" does not have a public Top Level Domain (TLD). This may be a sign of a misconfigured bug bounty program. Consider editing the \"" + firebountyJSONPath + " file and removing the faulty entries. Also, report the failure to the maintainers of the bug bounty program.")
+					}
+					return nil, ErrInvalidFormat
+				}
+			}
+
+			return portless, nil
+
 		} else {
 			if !chainMode {
 				warning("The text \"" + line + "\" was given as a scope, but it contains the path \"" + parsedURL.Path + "\". In order to properly match paths in your scope you have to use regex. This scope has been ignored.")
@@ -1047,7 +1023,7 @@ func parseLine(line string, isScope bool) (interface{}, error) {
 // - A slice of parsed objects (interface{} holding *net.IPNet, net.IP, or *url.URL)
 // - An error if no lines could be parsed as a scope, otherwise nil.
 // isScopes should be true if the lines to be parsed are scopes.
-func parseAllLines(lines []string, isScopes bool) ([]interface{}, error) {
+func parseAllLines(lines []string, isScopes bool, privateTLDsAreEnabled bool) ([]interface{}, error) {
 	parsed := []interface{}{}
 
 	numWorkers := runtime.NumCPU()
@@ -1062,7 +1038,7 @@ func parseAllLines(lines []string, isScopes bool) ([]interface{}, error) {
 		go func() {
 			defer wg.Done()
 			for line := range inputChan {
-				result, err := parseLine(line, isScopes)
+				result, err := parseLine(line, isScopes, privateTLDsAreEnabled)
 				if err != nil {
 					outputChan <- parseResult{value: result, line: line, err: err}
 				} else {

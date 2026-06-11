@@ -43,58 +43,58 @@ func equals(tb testing.TB, exp, act interface{}) {
 func Test_parseLine_Scope_IP(t *testing.T) {
 	scope := "192.168.0.1"
 	scopeParsed := net.ParseIP(scope)
-	result, _ := parseLine(scope, true)
+	result, _ := parseLine(scope, true, false)
 	equals(t, &scopeParsed, result)
 }
 
 func Test_parseLine_Scope_IPv4CIDR(t *testing.T) {
 	scope := "192.168.0.1/24"
 	_, scopeParsed, _ := net.ParseCIDR(scope)
-	result, _ := parseLine(scope, true)
+	result, _ := parseLine(scope, true, false)
 	equals(t, scopeParsed, result)
 }
 
 func Test_parseLine_Scope_IPv6CIDR(t *testing.T) {
 	scope := "2001:DB8::/32"
 	_, scopeParsed, _ := net.ParseCIDR(scope)
-	result, _ := parseLine(scope, true)
+	result, _ := parseLine(scope, true, false)
 	equals(t, scopeParsed, result)
 }
 
 func Test_parseLine_Scope_URL_Hostname(t *testing.T) {
 	scope := "https://example.com"
-	result, _ := parseLine(scope, true)
+	result, _ := parseLine(scope, true, false)
 	equals(t, "example.com", result)
 }
 
 func Test_parseLine_Scope_URL_Hostname_NoScheme(t *testing.T) {
 	scope := "example.com"
-	result, _ := parseLine(scope, true)
+	result, _ := parseLine(scope, true, false)
 	equals(t, "example.com", result)
 }
 
 func Test_parseLine_Scope_URL_Hostname_Port(t *testing.T) {
 	scope := "http://example.com:80"
-	result, _ := parseLine(scope, true)
+	result, _ := parseLine(scope, true, false)
 	equals(t, "example.com", result)
 }
 
 func Test_parseLine_Scope_URL_Hostname_Port_NoScheme(t *testing.T) {
 	scope := "example.com:80"
-	result, _ := parseLine(scope, true)
+	result, _ := parseLine(scope, true, false)
 	equals(t, "example.com", result)
 }
 
 func Test_parseLine_Scope_Invalid(t *testing.T) {
 	scope := "Consequuntur et aut saepe quibusdam quia. Nostrum aut et et ea ea. Ducimus dolore aut unde. Unde a eligendi repudiandae tempore corrupti."
-	result, err := parseLine(scope, true)
+	result, err := parseLine(scope, true, false)
 	equals(t, nil, result)
 	equals(t, ErrInvalidFormat, err)
 }
 
 func Test_parseLine_Scope_URL_Scheme_Invalid(t *testing.T) {
 	scope := "https://Consequuntur et aut saepe quibusdam quia. Nostrum aut et et ea ea. Ducimus dolore aut unde. Unde a eligendi repudiandae tempore corrupti."
-	result, err := parseLine(scope, true)
+	result, err := parseLine(scope, true, false)
 	equals(t, nil, result)
 	equals(t, ErrInvalidFormat, err)
 }
@@ -102,7 +102,7 @@ func Test_parseLine_Scope_URL_Scheme_Invalid(t *testing.T) {
 // Scopes that are URLs with paths are expected to throw an error.
 func Test_parseLine_Scope_URL_Hostname_WithPath(t *testing.T) {
 	scope := "https://example.com/path/to/something.html"
-	result, err := parseLine(scope, true)
+	result, err := parseLine(scope, true, false)
 
 	equals(t, nil, result)
 	equals(t, ErrInvalidFormat, err)
@@ -112,7 +112,7 @@ func Test_parseLine_Scope_URL_Hostname_WithPath(t *testing.T) {
 // Scopes that are URLs with paths are expected to throw an error.
 func Test_parseLine_Scope_URL_Hostname_Port_WithPath(t *testing.T) {
 	scope := "https://example.com:80/path/to/something.html"
-	result, err := parseLine(scope, true)
+	result, err := parseLine(scope, true, false)
 
 	equals(t, nil, result)
 	equals(t, ErrInvalidFormat, err)
@@ -122,7 +122,7 @@ func Test_parseLine_Scope_URL_Hostname_Port_WithPath(t *testing.T) {
 // Scopes that are URLs with paths are expected to throw an error.
 func Test_parseLine_Scope_URL_Hostname_NoScheme_WithPath(t *testing.T) {
 	scope := "example.com/path/to/something.html"
-	result, err := parseLine(scope, true)
+	result, err := parseLine(scope, true, false)
 
 	equals(t, nil, result)
 	equals(t, ErrInvalidFormat, err)
@@ -132,7 +132,7 @@ func Test_parseLine_Scope_URL_Hostname_NoScheme_WithPath(t *testing.T) {
 // Scopes that are URLs with paths are expected to throw an error.
 func Test_parseLine_Scope_URL_Hostname_Port_NoScheme_WithPath(t *testing.T) {
 	scope := "example.com:80/path/to/something.html"
-	result, err := parseLine(scope, true)
+	result, err := parseLine(scope, true, false)
 
 	equals(t, nil, result)
 	equals(t, ErrInvalidFormat, err)
@@ -142,7 +142,7 @@ func Test_parseLine_Scope_URL_Hostname_Port_NoScheme_WithPath(t *testing.T) {
 // Scopes that are URLs with paths are expected to throw an error.
 func Test_parseLine_Scope_URL_IP_WithPath(t *testing.T) {
 	scope := "https://192.168.1.0/path/to/something.html"
-	result, err := parseLine(scope, true)
+	result, err := parseLine(scope, true, false)
 
 	equals(t, nil, result)
 	equals(t, ErrInvalidFormat, err)
@@ -152,7 +152,7 @@ func Test_parseLine_Scope_URL_IP_WithPath(t *testing.T) {
 // Scopes that are URLs with paths are expected to throw an error.
 func Test_parseLine_Scope_URL_IP_NoScheme_WithPath(t *testing.T) {
 	scope := "192.168.1.0/path/to/something.html"
-	result, err := parseLine(scope, true)
+	result, err := parseLine(scope, true, false)
 
 	equals(t, nil, result)
 	equals(t, ErrInvalidFormat, err)
@@ -162,7 +162,7 @@ func Test_parseLine_Scope_URL_IP_NoScheme_WithPath(t *testing.T) {
 // Scopes that are URLs with paths are expected to throw an error.
 func Test_parseLine_Scope_URL_IP_Port_NoScheme_WithPath(t *testing.T) {
 	scope := "192.168.1.0:80/path/to/something.html"
-	result, err := parseLine(scope, true)
+	result, err := parseLine(scope, true, false)
 
 	equals(t, nil, result)
 	equals(t, ErrInvalidFormat, err)
@@ -174,7 +174,7 @@ func Test_parseLine_Scope_Wildcard_Start(t *testing.T) {
 	scope := "*.amz.example.com"
 	myregex, _ := regexp.Compile(`.*\.amz\.example\.com`)
 	scopeParsed := &WildcardScope{scope: *myregex}
-	result, _ := parseLine(scope, true)
+	result, _ := parseLine(scope, true, false)
 	equals(t, scopeParsed, result)
 }
 
@@ -183,7 +183,7 @@ func Test_parseLine_Scope_Wildcard_Middle(t *testing.T) {
 	scope := "database*.internal.example.com"
 	myregex, _ := regexp.Compile(`database.*\.internal\.example\.com`)
 	scopeParsed := &WildcardScope{scope: *myregex}
-	result, _ := parseLine(scope, true)
+	result, _ := parseLine(scope, true, false)
 	equals(t, scopeParsed, result)
 }
 
@@ -192,7 +192,7 @@ func Test_parseLine_Scope_Wildcard_Complex(t *testing.T) {
 	scope := "database*.internal.*.example.com"
 	myregex, _ := regexp.Compile(`database.*\.internal\..*\.example\.com`)
 	scopeParsed := &WildcardScope{scope: *myregex}
-	result, _ := parseLine(scope, true)
+	result, _ := parseLine(scope, true, false)
 	equals(t, scopeParsed, result)
 }
 
@@ -200,20 +200,20 @@ func Test_parseLine_Scope_Wildcard_Complex(t *testing.T) {
 func Test_parseLine_Scope_Regex(t *testing.T) {
 	scope := `^\w+:\/\/db[0-9][0-9][0-9]\.mycompany\.ec2\.amazonaws\.com.*$`
 	scopeParsed, _ := regexp.Compile(scope)
-	result, _ := parseLine(scope, true)
+	result, _ := parseLine(scope, true, false)
 	equals(t, scopeParsed, result)
 }
 
 func Test_parseLine_Target_IP(t *testing.T) {
 	scope := "192.168.0.1"
 	scopeParsed := net.ParseIP(scope)
-	result, _ := parseLine(scope, true)
+	result, _ := parseLine(scope, true, false)
 	equals(t, &scopeParsed, result)
 }
 
 func Test_parseLine_Target_IPv4CIDR(t *testing.T) {
 	scope := "192.168.0.1/24"
-	result, err := parseLine(scope, false)
+	result, err := parseLine(scope, false, false)
 	// If a CIDR range is given as a target (which doesn't make logical sense), the expected behavior is for it to be parsed as a URL with an IP host.
 	// so "192.168.0.1/24" turns into "https://192.168.0.1/24" (where "/24" is the URL path)
 	scopeAsIP := net.ParseIP("192.168.0.1")
@@ -233,7 +233,7 @@ func Test_parseLine_Target_IPv6CIDR(t *testing.T) {
 	scope := "2001:DB8::/32"
 	scopeAsIP := net.ParseIP("2001:DB8::")
 	parsedScope := URLWithIPAddressHost{rawURL: scope, IPhost: scopeAsIP}
-	result, err := parseLine(scope, false)
+	result, err := parseLine(scope, false, false)
 
 	checkForErrors(t, err)
 	got := result.(*URLWithIPAddressHost)
@@ -245,41 +245,41 @@ func Test_parseLine_Target_IPv6CIDR(t *testing.T) {
 func Test_parseLine_Target_URL_Hostname(t *testing.T) {
 	scope := "https://example.com"
 	scopeParsed, _ := url.Parse(scope)
-	result, _ := parseLine(scope, false)
+	result, _ := parseLine(scope, false, false)
 	equals(t, scopeParsed, result)
 }
 
 func Test_parseLine_Target_URL_Hostname_NoScheme(t *testing.T) {
 	scope := "example.com"
 	scopeParsed, _ := url.Parse("https://" + scope)
-	result, _ := parseLine(scope, false)
+	result, _ := parseLine(scope, false, false)
 	equals(t, scopeParsed, result)
 }
 
 func Test_parseLine_Target_URL_Hostname_Port(t *testing.T) {
 	scope := "http://example.com:80"
 	scopeParsed, _ := url.Parse(scope)
-	result, _ := parseLine(scope, false)
+	result, _ := parseLine(scope, false, false)
 	equals(t, scopeParsed, result)
 }
 
 func Test_parseLine_Target_URL_Hostname_Port_NoScheme(t *testing.T) {
 	scope := "example.com:80"
 	scopeParsed, _ := url.Parse("https://" + scope)
-	result, _ := parseLine(scope, false)
+	result, _ := parseLine(scope, false, false)
 	equals(t, scopeParsed, result)
 }
 
 func Test_parseLine_Target_Invalid(t *testing.T) {
 	scope := "Consequuntur et aut saepe quibusdam quia. Nostrum aut et et ea ea. Ducimus dolore aut unde. Unde a eligendi repudiandae tempore corrupti."
-	result, err := parseLine(scope, false)
+	result, err := parseLine(scope, false, false)
 	equals(t, nil, result)
 	equals(t, ErrInvalidFormat, err)
 }
 
 func Test_parseLine_Target_URL_Scheme_Invalid(t *testing.T) {
 	scope := "https://Consequuntur et aut saepe quibusdam quia. Nostrum aut et et ea ea. Ducimus dolore aut unde. Unde a eligendi repudiandae tempore corrupti."
-	result, err := parseLine(scope, false)
+	result, err := parseLine(scope, false, false)
 	equals(t, nil, result)
 	equals(t, ErrInvalidFormat, err)
 }
@@ -288,7 +288,7 @@ func Test_parseLine_Target_URL_Scheme_Invalid(t *testing.T) {
 func Test_parseLine_Target_URL_Hostname_WithPath(t *testing.T) {
 	scope := "https://example.com/path/to/something.html"
 	parsedScope, _ := url.Parse(scope)
-	result, err := parseLine(scope, false)
+	result, err := parseLine(scope, false, false)
 
 	equals(t, err, nil)
 	equals(t, parsedScope, result)
@@ -299,7 +299,7 @@ func Test_parseLine_Target_URL_Hostname_WithPath(t *testing.T) {
 func Test_parseLine_Target_URL_Hostname_Port_WithPath(t *testing.T) {
 	scope := "https://example.com:80/path/to/something.html"
 	parsedScope, _ := url.Parse(scope)
-	result, err := parseLine(scope, false)
+	result, err := parseLine(scope, false, false)
 
 	equals(t, err, nil)
 	equals(t, parsedScope, result)
@@ -310,7 +310,7 @@ func Test_parseLine_Target_URL_Hostname_Port_WithPath(t *testing.T) {
 func Test_parseLine_Target_URL_Hostname_NoScheme_WithPath(t *testing.T) {
 	scope := "example.com/path/to/something.html"
 	parsedScope, _ := url.Parse("https://" + scope)
-	result, err := parseLine(scope, false)
+	result, err := parseLine(scope, false, false)
 
 	equals(t, err, nil)
 	equals(t, parsedScope, result)
@@ -321,7 +321,7 @@ func Test_parseLine_Target_URL_Hostname_NoScheme_WithPath(t *testing.T) {
 func Test_parseLine_Target_URL_Hostname_Port_NoScheme_WithPath(t *testing.T) {
 	scope := "example.com:80/path/to/something.html"
 	parsedScope, _ := url.Parse("https://" + scope)
-	result, err := parseLine(scope, false)
+	result, err := parseLine(scope, false, false)
 
 	equals(t, err, nil)
 	equals(t, parsedScope, result)
@@ -333,7 +333,7 @@ func Test_parseLine_Target_URL_IPv4_WithPath(t *testing.T) {
 	scope := "https://192.168.1.0/path/to/something.html"
 	scopeAsIP := net.ParseIP("192.168.1.0")
 	parsedScope := URLWithIPAddressHost{rawURL: scope, IPhost: scopeAsIP}
-	result, err := parseLine(scope, false)
+	result, err := parseLine(scope, false, false)
 
 	checkForErrors(t, err)
 	equals(t, &parsedScope, result)
@@ -345,7 +345,7 @@ func Test_parseLine_Target_URL_IPv4_NoScheme_WithPath(t *testing.T) {
 	scope := "192.168.1.0/path/to/something.html"
 	scopeAsIP := net.ParseIP("192.168.1.0")
 	parsedScope := URLWithIPAddressHost{rawURL: scope, IPhost: scopeAsIP}
-	result, err := parseLine(scope, false)
+	result, err := parseLine(scope, false, false)
 
 	checkForErrors(t, err)
 	got := result.(*URLWithIPAddressHost)
@@ -360,7 +360,7 @@ func Test_parseLine_Target_URL_IPv4_Port_NoScheme_WithPath(t *testing.T) {
 	scope := "192.168.1.0:80/path/to/something.html"
 	scopeAsIP := net.ParseIP("192.168.1.0")
 	parsedScope := URLWithIPAddressHost{rawURL: scope, IPhost: scopeAsIP}
-	result, err := parseLine(scope, false)
+	result, err := parseLine(scope, false, false)
 
 	checkForErrors(t, err)
 	equals(t, &parsedScope, result)
@@ -887,7 +887,7 @@ func Test_isInscope_IP(t *testing.T) {
 	}
 
 	// Test nmap-like input (last octet)
-	nmapScope, err := parseLine("192.168.0.1-4", true)
+	nmapScope, err := parseLine("192.168.0.1-4", true, false)
 	if err != nil {
 		panic(err)
 	}
@@ -912,7 +912,7 @@ func Test_isInscope_IP(t *testing.T) {
 	equals(t, false, result)
 
 	// Test nmap-like input (middle octet)
-	nmapScope, err = parseLine("192.168.0-4.1", true)
+	nmapScope, err = parseLine("192.168.0-4.1", true, false)
 	if err != nil {
 		panic(err)
 	}
@@ -942,7 +942,7 @@ func Test_isInscope_IP(t *testing.T) {
 	equals(t, false, result)
 
 	// Test nmap-like input (middle octet, with commas)
-	nmapScope, err = parseLine("192.168.0-4,6.1", true)
+	nmapScope, err = parseLine("192.168.0-4,6.1", true, false)
 	if err != nil {
 		panic(err)
 	}
