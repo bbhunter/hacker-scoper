@@ -52,14 +52,14 @@ type Scope struct {
 }
 
 type Program struct {
-	Firebounty_url string //url.URL not allowed appearently
+	Firebounty_url string //url.URL not allowed apparently
 	Scopes         struct {
 		In_scopes     []Scope
 		Out_of_scopes []Scope
 	}
 	Slug string
 	Tag  string
-	Url  string //url.URL not allowed appearently
+	Url  string //url.URL not allowed apparently
 	Name string
 }
 
@@ -202,12 +202,12 @@ func main() {
 	flag.StringVar(&outofScopesListFilepath, "out-of-scope", "", "Path to a custom plaintext file containing scopes exclusions")
 	flag.StringVar(&outofScopesListFilepath, "outofscope-file", "", "Path to a custom plaintext file containing scopes exclusions")
 	flag.StringVar(&outofScopesListFilepath, "out-of-scope-file", "", "Path to a custom plaintext file containing scopes exclusions")
-	flag.IntVar(&inscopeExplicitLevel, "ie", 1, "Level of explicity expected. ([1]/2/3)")
-	flag.IntVar(&inscopeExplicitLevel, "inscope-explicit-level", 1, "Level of explicity expected. ([1]/2/3)")
-	flag.IntVar(&inscopeExplicitLevel, "in-scope-explicit-level", 1, "Level of explicity expected. ([1]/2/3)")
-	flag.IntVar(&noscopeExplicitLevel, "oe", 1, "Level of explicity expected. ([1]/2/3)")
-	flag.IntVar(&noscopeExplicitLevel, "noscope-explicit-level", 1, "Level of explicity expected. ([1]/2/3)")
-	flag.IntVar(&noscopeExplicitLevel, "no-scope-explicit-level", 1, "Level of explicity expected. ([1]/2/3)")
+	flag.IntVar(&inscopeExplicitLevel, "ie", 1, "Level of explicitness expected. ([1]/2/3)")
+	flag.IntVar(&inscopeExplicitLevel, "inscope-explicit-level", 1, "Level of explicitness expected. ([1]/2/3)")
+	flag.IntVar(&inscopeExplicitLevel, "in-scope-explicit-level", 1, "Level of explicitness expected. ([1]/2/3)")
+	flag.IntVar(&noscopeExplicitLevel, "oe", 1, "Level of explicitness expected. ([1]/2/3)")
+	flag.IntVar(&noscopeExplicitLevel, "noscope-explicit-level", 1, "Level of explicitness expected. ([1]/2/3)")
+	flag.IntVar(&noscopeExplicitLevel, "no-scope-explicit-level", 1, "Level of explicitness expected. ([1]/2/3)")
 	flag.BoolVar(&privateTLDsAreEnabled, "enable-private-tlds", false, "Set this flag to enable the use of company scope domains with private TLDs. This essentially disables the bug-bounty-program misconfiguration detection.")
 	flag.BoolVar(&chainMode, "ch", false, "Output only the important information. No decorations.")
 	flag.BoolVar(&chainMode, "chain-mode", false, "Output only the important information. No decorations.")
@@ -255,7 +255,7 @@ func main() {
 	if firebountyJSONPath == "" {
 		firebountyJSONPath = getFirebountyJSONPath()
 		if firebountyJSONPath == "" && !chainMode {
-			warning("This OS isn't officially supported. The firebounty JSON will be downloaded in the current working directory. To override this behaviour, use the \"--database\" flag.")
+			warning("This OS isn't officially supported. The firebounty JSON will be downloaded in the current working directory. To override this behavior, use the \"--database\" flag.")
 		}
 	} else {
 		//If the folder exists...
@@ -268,7 +268,7 @@ func main() {
 			}
 		} else if err != nil {
 			// Schrodinger: file may or may not exist. See err for details.
-			crash("Could not verify existance of the folder \""+firebountyJSONPath+"\"!", err)
+			crash("Could not verify existence of the folder \""+firebountyJSONPath+"\"!", err)
 		}
 	}
 
@@ -440,7 +440,7 @@ func main() {
 				os.Exit(2)
 			}
 
-			//appearently "while" doesn't exist in Go. It has been replaced by "for"
+			//apparently "while" doesn't exist in Go. It has been replaced by "for"
 			for userPickedInvalidChoice {
 				//For every matchingCompanyList item...
 				for i := range matchingCompanyList {
@@ -455,7 +455,7 @@ func main() {
 				fmt.Print("\n[+] Multiple companies matched \"" + company + "\". Please choose one: ")
 				_, err = fmt.Scanln(&userChoice)
 				if err != nil {
-					crash("An error ocurred while reading user input.", err)
+					crash("An error occurred while reading user input.", err)
 				}
 
 				//Convert userchoice str -> int
@@ -733,7 +733,7 @@ func isOutOfScope(noscopeScopes *[]interface{}, target *interface{}, explicitLev
 }
 
 //======================================================================================
-// The following code is from tomnomnom's inscope project:
+// The following code is from Tomnomnom's inscope project:
 // https://github.com/tomnomnom/hacks/tree/master/inscope
 
 func searchForFileBackwards(filename string) (string, error) {
@@ -815,7 +815,7 @@ func getCompanyScopes(firebountyJSONPath string, companyIndex *int, privateTLDsA
 
 			rawInScope := prog.Scopes.In_scopes[inscopeCounter].Scope
 
-			// TODO: Optimize this. It's very inneficient to be parsing this line twice. parseLine is already called within isAndroidPackageName, so we shouldn't call it again, that's redundant.
+			// TODO: Optimize this. It's very inefficient to be parsing this line twice. parseLine is already called within isAndroidPackageName, so we shouldn't call it again, that's redundant.
 			if !isAndroidPackageName(&rawInScope, privateTLDsAreEnabled) {
 				inscopeLines = append(inscopeLines, rawInScope)
 			}
@@ -847,7 +847,7 @@ func getCompanyScopes(firebountyJSONPath string, companyIndex *int, privateTLDsA
 // This function receives a raw scope string, and returns true if it's an android package name.
 // It's goal is to help detect any misconfigured bug-bounty programs
 // Only scopes that have the type "web_application" but that we aren't sure if they are actually web_application resources should be sent into this function.
-// Sometimes bug bounty programs set APK package names such as com.my.businness.gatewayportal as web_application resources instead of as android_application resources in their program scope, causing trouble for anyone using automatic tools. Hacker-Scoper automatically detects these errors and notifies the user.
+// Sometimes bug bounty programs set APK package names such as com.my.business.gatewayportal as web_application resources instead of as android_application resources in their program scope, causing trouble for anyone using automatic tools. Hacker-Scoper automatically detects these errors and notifies the user.
 func isAndroidPackageName(rawScope *string, privateTLDsAreEnabled bool) bool {
 
 	if privateTLDsAreEnabled {
@@ -877,7 +877,7 @@ func isAndroidPackageName(rawScope *string, privateTLDsAreEnabled bool) bool {
 
 		if !scopeHasValidTLD && inscope.(*url.URL).Host != "" {
 			if !chainMode {
-				warning("The scope \"" + *rawScope + "\" does not have a public Top Level Domain (TLD). This may be a sign of a misconfigured bug bounty program. Consider editing the \"" + firebountyJSONPath + " file and removing the faulty entries. Also, report the failure to the mainters of the bug bounty program.")
+				warning("The scope \"" + *rawScope + "\" does not have a public Top Level Domain (TLD). This may be a sign of a misconfigured bug bounty program. Consider editing the \"" + firebountyJSONPath + " file and removing the faulty entries. Also, report the failure to the maintainers of the bug bounty program.")
 			}
 			return true
 		}
@@ -911,7 +911,7 @@ func readFileLines(filepath string) ([]string, error) {
 // The channel is closed when EOF is reached. An error is returned if the
 // file could not be opened.
 func streamFileLines(filepath string) (<-chan string, error) {
-	f, err := os.Open(filepath) // #nosec G304 -- intended behaviour
+	f, err := os.Open(filepath) // #nosec G304 -- intended behavior
 	if err != nil {
 		return nil, err
 	}
