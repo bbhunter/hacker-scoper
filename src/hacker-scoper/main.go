@@ -415,7 +415,11 @@ func main() {
 		//for every company...
 		for i, fcompany := range companyNames {
 			fcompany := strings.ToLower(fcompany)
-			if strings.Contains(fcompany, company) {
+			fcompany = strings.TrimSpace(fcompany)
+			if fcompany == company {
+				matchingCompanyList = []firebountySearchMatch{{i, fcompany}}
+				break
+			} else if strings.Contains(fcompany, company) {
 				matchingCompanyList = append(matchingCompanyList, firebountySearchMatch{i, fcompany})
 			}
 		}
@@ -431,8 +435,8 @@ func main() {
 		} else if len(matchingCompanyList) > 1 {
 
 			if chainMode {
-				err = nil
-				crash("Unable to match the company to a single company. Please use a more exact company string.", err)
+				warning("Unable to match the company to a single company. Please use a more exact company string.")
+				os.Exit(2)
 			}
 
 			//appearently "while" doesn't exist in Go. It has been replaced by "for"
