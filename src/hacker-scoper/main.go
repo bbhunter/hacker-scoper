@@ -657,7 +657,6 @@ func main() {
 }
 
 func updateFireBountyJSON() {
-	// path/to/whatever does *not* exist
 	//get the big JSON from the API
 	req, err := http.NewRequest("GET", firebountyAPIURL, nil)
 	if err != nil {
