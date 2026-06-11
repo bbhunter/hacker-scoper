@@ -37,7 +37,7 @@ This project is developed and maintained by [ItsIgnacioPortal](https://github.co
 
 - **Blazing-fast**: Hacker-Scoper is extremely fast at processing targets, as it leverages several optimization techniques as well as built-in multithreading.
 
-- **Flexible**: For any companies with vaguely defined scopes, you can enable or disable scope wildcard/CIDR parsing using the command-line argument `-ie`/`--inscope-explicit-level`.
+- **Flexible**: For any companies with vaguely defined scopes, you can adjust scope wildcard/CIDR parsing using the "explicit-level" command-line arguments.
 
 - **Misconfiguration detection**: Using TLD-Based detection, hacker-scoper can automatically detect misconfigurations in bug-bounty program scopes. For example: Sometimes bug bounty programs set APK package names such as `com.my.businness.gatewayportal` as `web_application` resources instead of as `android_application` resources in their program scope, causing trouble for anyone using automatic tools. Hacker-Scoper automatically detects these errors and notifies the user.
 
