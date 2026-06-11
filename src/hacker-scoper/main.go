@@ -20,6 +20,7 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/schollz/progressbar/v3"
 	"golang.org/x/net/publicsuffix"
 )
 
@@ -658,31 +659,22 @@ func main() {
 func updateFireBountyJSON() {
 	// path/to/whatever does *not* exist
 	//get the big JSON from the API
-	jason, err := http.Get(firebountyAPIURL)
+	req, err := http.NewRequest("GET", firebountyAPIURL, nil)
 	if err != nil {
 		crash("Could not download scopes from firebounty at: "+firebountyAPIURL, err)
 	}
+	jason, _ := http.DefaultClient.Do(req)
 
-	//read the contents of the request
-	body, err := io.ReadAll(jason.Body)
+	f, _ := os.OpenFile(firebountyJSONPath, os.O_CREATE|os.O_WRONLY, 0600)
+	defer f.Close()
+
+	bar := progressbar.DefaultBytes(
+		jason.ContentLength,
+		"downloading",
+	)
+	io.Copy(io.MultiWriter(f, bar), jason.Body)
+
 	jason.Body.Close() // #nosec G104 -- There is no situation in which closing the body of the request will cause an error.
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	//delete the previous file (if it even exists)
-	os.Remove(firebountyJSONPath) // #nosec G104 -- There is no need to handle any errors in deleting the file, as it will be created again in the next step.
-
-	//write to disk
-	err = os.WriteFile(firebountyJSONPath, []byte(string(body)), 0600)
-	if err != nil {
-		crash("Couldn't save firebounty json to disk as"+firebountyJSONPath, err)
-	}
-
-	if !chainMode {
-		fmt.Println("[INFO]: Scopes file saved to " + firebountyJSONPath)
-	}
-
 }
 
 func parseScopes(inscopeScopes *[]interface{}, noscopeScopes *[]interface{}, target *interface{}, inscopeExplicitLevel *int, noscopeExplicitLevel *int, includeUnsure bool) (isInsideScope bool, isUnsure bool) {
