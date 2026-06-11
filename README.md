@@ -21,7 +21,7 @@ This project is developed and maintained by [ItsIgnacioPortal](https://github.co
 
 - **Easy customization**: You can load the scope of any private program into files named `.inscope` for inscope assets, and `.noscope` for out-of-scope assets.
 
-- **Match any asset**: Hacker-Scoper works with IPv4, IPv6, and any URL format (including URLs with non-conventional schemes, like `sql://` or `redis://`).
+- **Match any asset**: Hacker-Scoper works with IPv4, IPv6, and any URL format (including URLs with uncommon schemes, like `sql://` or `redis://`).
 
 - **Wildcard support**: Hacker-Scoper supports wildcards in any part of your domain-name scopes, allowing you to use filters like `amzn*.example.com` and `dev.*.example.com`.
 
@@ -98,16 +98,16 @@ Usage: hacker-scoper --file /path/to/targets [--company company | --inscopes-fil
 ### Table of all possible arguments:
 | Short | Long | Description |
 |-------|------|-------------|
-| -c | --company |  Specify the company name to lookup. |
-| -f | --file |  Path to your file containing URLs/domains/IPs |
-| -ins | --inscope-file |  Path to a custom plaintext file containing scopes |
-| -oos | --outofscope-file |  Path to a custom plaintext file containing scopes exclusions |
-| -ie<br>-oe | --inscope-explicit-level int<br>--noscope-explicit-level  int|  How explicit we expect the scopes to be:    <br> 1 (default): Include subdomains in the scope even if there's not a wildcard in the scope.    <br> 2: Include subdomains in the scope only if there's a wildcard in the scope.    <br> 3: Include subdomains/IPs in the scope only if they are explicitly within the scope. CIDR ranges and wildcards are disabled. |
+| -c | --company STRING |  Specify the company name to lookup. |
+| -f | --file /path/to/targets |  Path to your file containing URLs/domains/IPs |
+| -ins | --inscope-file /path/to/inscopes |  Path to a custom plaintext file containing scopes |
+| -oos | --outofscope-file /path/to/outofscopes |  Path to a custom plaintext file containing scopes exclusions |
+| -ie<br>-oe | --inscope-explicit-level INT<br>--noscope-explicit-level INT|  How explicit we expect the scopes to be:    <br> 1 (default): Include subdomains in the scope even if there's not a wildcard in the scope.    <br> 2: Include subdomains in the scope only if there's a wildcard in the scope.    <br> 3: Include subdomains/IPs in the scope only if they are explicitly within the scope. CIDR ranges and wildcards are disabled. |
 |  | --enable-private-tlds | Set this flag to enable the use of company scope domains with private TLDs. This essentially disables the bug-bounty-program misconfiguration detection. |
-| -ch | --chain-mode |  In "chain-mode" we only output the important information. No decorations. Default: false |
-|  | --database | Custom path to the cached firebounty database |
+| -ch | --chain-mode<br>--raw<br>--plain |  In "chain-mode" we only output the important information. No decorations. |
+|  | --database /path/to/database | Custom path to the cached firebounty database |
 | -iu | --include-unsure |  Include "unsure" assets in the output. An unsure asset is an asset that's not in scope, but is also not out of scope. Very probably unrelated to the bug bounty program. |
-| -o | --output |  Save the inscope assets to a file |
+| -o | --output /path/to/outputfile |  Save the inscope assets to a file |
 |    | --quiet | Disable command-line output. |
 | -ho | --hostnames-only | When handling URLs, output only their hostnames instead of the full URLs |
 |  | --version | Show the installed version |
