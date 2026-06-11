@@ -262,7 +262,7 @@ func main() {
 		_, err := os.Stat(firebountyJSONPath)
 		if errors.Is(err, os.ErrNotExist) {
 			//Create the folder
-			err := os.Mkdir(firebountyJSONPath, 0600)
+			err := os.Mkdir(firebountyJSONPath, 0700)
 			if err != nil {
 				crash("Unable to create the folder \""+firebountyJSONPath+"\"", err)
 			}
