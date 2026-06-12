@@ -109,6 +109,7 @@ func main() {
 	var includeUnsure bool
 	var inscopeOutputFile string
 	var outputDomainsOnly bool
+	var outputCSVFormat bool
 
 	var quietMode bool
 	var showVersion bool
@@ -181,6 +182,9 @@ func main() {
   -o, --output string
       Save the inscope assets to a file
 
+  --csv
+      Output in CSV format.
+
   --quiet
       Disable command-line output.
 
@@ -221,6 +225,7 @@ func main() {
 	flag.StringVar(&firebountyJSONPath, "database", "", "Custom path to the cached firebounty database")
 	flag.StringVar(&inscopeOutputFile, "o", "", "Save the inscope urls to a file")
 	flag.StringVar(&inscopeOutputFile, "output", "", "Save the inscope urls to a file")
+	flag.BoolVar(&outputCSVFormat, "csv", false, "Output in CSV format")
 	flag.BoolVar(&quietMode, "quiet", false, "Disable command-line output.")
 	flag.BoolVar(&showVersion, "version", false, "Show installed version")
 	flag.BoolVar(&includeUnsure, "iu", false, "Include \"unsure\" URLs in the output. An unsure URL is a URL that's not in scope, but is also not out of scope. Very probably unrelated to the bug bounty program.")
@@ -621,6 +626,19 @@ func main() {
 
 	// Consume results as they arrive
 	var target string
+
+	if outputCSVFormat {
+		if !quietMode {
+			fmt.Println("type,asset")
+		}
+		if inscopeOutputFile != "" {
+			_, err = writer.WriteString("type,asset\n")
+			if err != nil {
+				crash("Unable to write to output file", err)
+			}
+		}
+	}
+
 	for res := range outputChan {
 		if res.err != nil {
 			warning("Unable to parse the string '" + res.targetStr + "' as a target.")
@@ -640,25 +658,55 @@ func main() {
 				target = res.targetStr
 			}
 			if !quietMode {
-				if res.isUnsure && includeUnsure {
-					if !chainMode {
-						infoWarning("UNSURE: ", target)
+				if outputCSVFormat {
+					if res.isUnsure {
+						if includeUnsure {
+							fmt.Println("unsure," + target)
+						}
 					} else {
-						fmt.Println(target)
+						fmt.Println("inscope," + target)
 					}
 				} else {
-					if !chainMode {
-						infoGood("IN-SCOPE: ", target)
+					if res.isUnsure {
+						if includeUnsure {
+							if !chainMode {
+								infoWarning("UNSURE: ", target)
+							} else {
+								fmt.Println(target)
+							}
+						}
 					} else {
-						fmt.Println(target)
+						if !chainMode {
+							infoGood("IN-SCOPE: ", target)
+						} else {
+							fmt.Println(target)
+						}
 					}
 				}
 			}
 			if inscopeOutputFile != "" {
-				_, err = writer.WriteString(target + "\n")
-				if err != nil {
-					crash("Unable to write to output file", err)
+
+				if outputCSVFormat {
+					if res.isUnsure {
+						if includeUnsure {
+							_, err = writer.WriteString("unsure," + target + "\n")
+							if err != nil {
+								crash("Unable to write to output file", err)
+							}
+						}
+					} else {
+						_, err = writer.WriteString("inscope," + target + "\n")
+						if err != nil {
+							crash("Unable to write to output file", err)
+						}
+					}
+				} else {
+					_, err = writer.WriteString(target + "\n")
+					if err != nil {
+						crash("Unable to write to output file", err)
+					}
 				}
+
 			}
 		}
 	}
