@@ -268,8 +268,11 @@ func main() {
 			if databaseIsUpdating {
 				fmt.Println()
 				path := tmpFile.Name()
-				tmpFile.Close()
-				os.Remove(path)
+				tmpFile.Close() // #nosec G304 -- There is no harm in potentially double-closing a temp file.
+				err := os.Remove(path)
+				if err != nil {
+					warning("Error deleting temp file at \"" + path + "\". Please ensure the file is deleted.")
+				}
 				infoGood("INFO: ", "Database update has been cancelled. Previous state restored.")
 			}
 			os.Exit(0)
@@ -742,9 +745,13 @@ func updateFireBountyJSON(databaseIsUpdating *bool, tmpFile *os.File, dbFileExis
 		jason.ContentLength,
 		"downloading",
 	)
-	io.Copy(io.MultiWriter(tmpFile, bar), jason.Body)
+	_, err = io.Copy(io.MultiWriter(tmpFile, bar), jason.Body)
+	if err != nil {
+		warning("Error writing to the temporary file at \"" + tmpFile.Name() + "\". Database update cancelled.")
+		return
+	}
 	jason.Body.Close() // #nosec G104 -- There is no situation in which closing the body of the request will cause an error.
-	tmpFile.Close()
+	tmpFile.Close()    // #nosec G104 -- There is no situation in which closing the temp file will cause an error.
 	if jason.StatusCode == 200 {
 		err = os.Rename(tmpFile.Name(), firebountyJSONPath)
 		if err != nil {
@@ -754,7 +761,10 @@ func updateFireBountyJSON(databaseIsUpdating *bool, tmpFile *os.File, dbFileExis
 		if !chainMode {
 			warning("There was an error downloading the latest update of the firebounty db from URL \"" + firebountyAPIURL + "\". Got status code \"" + strconv.Itoa(jason.StatusCode) + "\" Server may be down temporarily. Try again later.")
 		}
-		os.Remove(tmpFile.Name())
+		err = os.Remove(tmpFile.Name())
+		if err != nil {
+			warning("Error deleting temp file at \"" + tmpFile.Name() + "\". Please ensure the file is deleted.")
+		}
 	}
 }
 
