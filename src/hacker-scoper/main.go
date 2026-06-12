@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -20,6 +21,7 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/schollz/progressbar/v3"
 	"golang.org/x/net/publicsuffix"
 )
 
@@ -51,14 +53,14 @@ type Scope struct {
 }
 
 type Program struct {
-	Firebounty_url string //url.URL not allowed appearently
+	Firebounty_url string //url.URL not allowed apparently
 	Scopes         struct {
 		In_scopes     []Scope
 		Out_of_scopes []Scope
 	}
 	Slug string
 	Tag  string
-	Url  string //url.URL not allowed appearently
+	Url  string //url.URL not allowed apparently
 	Name string
 }
 
@@ -107,6 +109,7 @@ func main() {
 	var includeUnsure bool
 	var inscopeOutputFile string
 	var outputDomainsOnly bool
+	var outputCSVFormat bool
 
 	var quietMode bool
 	var showVersion bool
@@ -116,6 +119,9 @@ func main() {
 	var scopesListFilepath string
 	var outofScopesListFilepath string
 	var privateTLDsAreEnabled bool
+
+	databaseIsUpdating := false
+	var tmpFile *os.File
 
 	const usage = `Hacker-scoper is a GoLang tool designed to assist cybersecurity professionals in bug bounty programs. It identifies and excludes URLs and IP addresses that fall outside a program's scope by comparing input targets (URLs/IPs) against a locally cached [FireBounty](https://firebounty.com) database of scraped scope data. Users may also supply a custom scope list for validation.
 
@@ -141,17 +147,17 @@ func main() {
   -c, --company string
       Specify the company name to lookup.
 
-  -f, --file string
+  -f, --file /path/to/targets
       Path to your file containing URLs
 
-  -ins, --inscope, --in-scope, --in-scope-file, --inscope-file string
+  -ins, --inscope, --in-scope, --in-scope-file, --inscope-file /path/to/inscopes
       Path to a custom plaintext file containing scopes
 
-  -oos, --outofscope, --out-of-scope, --out-of-scope-file, --outofscope-file string
+  -oos, --outofscope, --out-of-scope, --out-of-scope-file, --outofscope-file /path/to/outofscopes
       Path to a custom plaintext file containing scopes exclusions
 
-  -ie, --inscope-explicit-level int
-  -oe, --noscope-explicit-level int
+  -ie, --inscope-explicit-level INT
+  -oe, --noscope-explicit-level INT
       How explicit we expect the scopes to be:
         (default) 1: Include subdomains in the scope even if there's not a wildcard in the scope.
                   2: Include subdomains in the scope only if there's a wildcard in the scope.
@@ -164,7 +170,7 @@ func main() {
       In "chain-mode" we only output the important information. No decorations.
 	    Default: false
 
-  --database string
+  --database /path/to/database
       Custom path to the cached firebounty database.
 	  	Default:
 		- Windows: %APPDATA%\hacker-scoper\
@@ -173,8 +179,11 @@ func main() {
   -iu, --include-unsure
       Include "unsure" assets in the output. An unsure asset is an asset that's not in scope, but is also not out of scope. Very probably unrelated to the bug bounty program.
 
-  -o, --output string
+  -o, --output /path/to/outputfile
       Save the inscope assets to a file
+
+  --csv
+      Output in CSV format.
 
   --quiet
       Disable command-line output.
@@ -201,12 +210,12 @@ func main() {
 	flag.StringVar(&outofScopesListFilepath, "out-of-scope", "", "Path to a custom plaintext file containing scopes exclusions")
 	flag.StringVar(&outofScopesListFilepath, "outofscope-file", "", "Path to a custom plaintext file containing scopes exclusions")
 	flag.StringVar(&outofScopesListFilepath, "out-of-scope-file", "", "Path to a custom plaintext file containing scopes exclusions")
-	flag.IntVar(&inscopeExplicitLevel, "ie", 1, "Level of explicity expected. ([1]/2/3)")
-	flag.IntVar(&inscopeExplicitLevel, "inscope-explicit-level", 1, "Level of explicity expected. ([1]/2/3)")
-	flag.IntVar(&inscopeExplicitLevel, "in-scope-explicit-level", 1, "Level of explicity expected. ([1]/2/3)")
-	flag.IntVar(&noscopeExplicitLevel, "oe", 1, "Level of explicity expected. ([1]/2/3)")
-	flag.IntVar(&noscopeExplicitLevel, "noscope-explicit-level", 1, "Level of explicity expected. ([1]/2/3)")
-	flag.IntVar(&noscopeExplicitLevel, "no-scope-explicit-level", 1, "Level of explicity expected. ([1]/2/3)")
+	flag.IntVar(&inscopeExplicitLevel, "ie", 1, "Level of explicitness expected. ([1]/2/3)")
+	flag.IntVar(&inscopeExplicitLevel, "inscope-explicit-level", 1, "Level of explicitness expected. ([1]/2/3)")
+	flag.IntVar(&inscopeExplicitLevel, "in-scope-explicit-level", 1, "Level of explicitness expected. ([1]/2/3)")
+	flag.IntVar(&noscopeExplicitLevel, "oe", 1, "Level of explicitness expected. ([1]/2/3)")
+	flag.IntVar(&noscopeExplicitLevel, "noscope-explicit-level", 1, "Level of explicitness expected. ([1]/2/3)")
+	flag.IntVar(&noscopeExplicitLevel, "no-scope-explicit-level", 1, "Level of explicitness expected. ([1]/2/3)")
 	flag.BoolVar(&privateTLDsAreEnabled, "enable-private-tlds", false, "Set this flag to enable the use of company scope domains with private TLDs. This essentially disables the bug-bounty-program misconfiguration detection.")
 	flag.BoolVar(&chainMode, "ch", false, "Output only the important information. No decorations.")
 	flag.BoolVar(&chainMode, "chain-mode", false, "Output only the important information. No decorations.")
@@ -216,6 +225,7 @@ func main() {
 	flag.StringVar(&firebountyJSONPath, "database", "", "Custom path to the cached firebounty database")
 	flag.StringVar(&inscopeOutputFile, "o", "", "Save the inscope urls to a file")
 	flag.StringVar(&inscopeOutputFile, "output", "", "Save the inscope urls to a file")
+	flag.BoolVar(&outputCSVFormat, "csv", false, "Output in CSV format")
 	flag.BoolVar(&quietMode, "quiet", false, "Disable command-line output.")
 	flag.BoolVar(&showVersion, "version", false, "Show installed version")
 	flag.BoolVar(&includeUnsure, "iu", false, "Include \"unsure\" URLs in the output. An unsure URL is a URL that's not in scope, but is also not out of scope. Very probably unrelated to the bug bounty program.")
@@ -237,7 +247,7 @@ func main() {
 `
 
 	if showVersion {
-		fmt.Print("hacker-scoper: v6.1.4\n")
+		fmt.Print("hacker-scoper: v6.2.0\n")
 		os.Exit(0)
 	}
 
@@ -251,23 +261,41 @@ func main() {
 		chainMode = quietMode
 	}
 
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	go func() {
+		for range c {
+			if databaseIsUpdating {
+				fmt.Println()
+				path := tmpFile.Name()
+				tmpFile.Close() // #nosec G104 -- There is no harm in potentially double-closing a temp file.
+				err := os.Remove(path)
+				if err != nil {
+					warning("Error deleting temp file at \"" + path + "\". Please ensure the file is deleted.")
+				}
+				infoGood("INFO: ", "Database update has been cancelled. Previous state restored.")
+			}
+			os.Exit(0)
+		}
+	}()
+
 	if firebountyJSONPath == "" {
 		firebountyJSONPath = getFirebountyJSONPath()
 		if firebountyJSONPath == "" && !chainMode {
-			warning("This OS isn't officially supported. The firebounty JSON will be downloaded in the current working directory. To override this behaviour, use the \"--database\" flag.")
+			warning("This OS isn't officially supported. The firebounty JSON will be downloaded in the current working directory. To override this behavior, use the \"--database\" flag.")
 		}
 	} else {
 		//If the folder exists...
 		_, err := os.Stat(firebountyJSONPath)
 		if errors.Is(err, os.ErrNotExist) {
 			//Create the folder
-			err := os.Mkdir(firebountyJSONPath, 0600)
+			err := os.Mkdir(firebountyJSONPath, 0700)
 			if err != nil {
 				crash("Unable to create the folder \""+firebountyJSONPath+"\"", err)
 			}
 		} else if err != nil {
 			// Schrodinger: file may or may not exist. See err for details.
-			crash("Could not verify existance of the folder \""+firebountyJSONPath+"\"!", err)
+			crash("Could not verify existence of the folder \""+firebountyJSONPath+"\"!", err)
 		}
 	}
 
@@ -328,8 +356,8 @@ func main() {
 		// Print a usage warning, then quit gracefully
 
 		if !chainMode {
-			fmt.Println(string(colorRed) + "[-] No input file specified. Please specify a file with the -f or --file argument." + string(colorReset))
-			fmt.Println(string(colorRed) + "[-] Run with \"--help\" for more information." + string(colorReset))
+			fmt.Println(colorRed + "[-] No input file specified. Please specify a file with the -f or --file argument." + colorReset)
+			fmt.Println(colorRed + "[-] Run with \"--help\" for more information." + colorReset)
 		}
 
 		// Exit code 2 = command line syntax error
@@ -344,7 +372,7 @@ func main() {
 		// If the user didn't specify a company name, and also didn't specify a filepath for the inscope and outofscope files, we'll search for .inscope and .noscope files.
 
 		if !chainMode {
-			fmt.Print("No company or scopes file specified. Looking for \".inscope\" and \".noscope\" files..." + "\n")
+			fmt.Println("No company or scopes file specified. Looking for \".inscope\" and \".noscope\" files...")
 		}
 
 		//look for .inscope file
@@ -354,7 +382,7 @@ func main() {
 		}
 
 		if !chainMode {
-			fmt.Print(".inscope found. Using " + inscopePath + "\n")
+			fmt.Println(".inscope found. Using " + inscopePath)
 		}
 
 		//look for .noscope file
@@ -362,7 +390,7 @@ func main() {
 		if err != nil {
 			noscopePath = ""
 		} else if !chainMode {
-			fmt.Print(".noscope found. Using " + noscopePath + "\n")
+			fmt.Println(".noscope found. Using " + noscopePath)
 		}
 
 		// Load the inscope file into memory
@@ -388,7 +416,7 @@ func main() {
 				if !chainMode {
 					fmt.Println("[INFO]: +24hs have passed since the last update to the local firebounty database. Updating...")
 				}
-				updateFireBountyJSON()
+				updateFireBountyJSON(&databaseIsUpdating, tmpFile, true)
 			}
 		} else if errors.Is(err, os.ErrNotExist) {
 			// The database does not exist.
@@ -396,7 +424,7 @@ func main() {
 			if !chainMode {
 				fmt.Println("[INFO]: Downloading scopes file and saving in \"" + firebountyJSONPath + "\"")
 			}
-			updateFireBountyJSON()
+			updateFireBountyJSON(&databaseIsUpdating, tmpFile, false)
 		} else {
 			crash("Unable to get information about the database file at \""+firebountyJSONPath+"\". Probably a permissions error with the directory the database is saved at. Try using the database argument like '--database /custom/path/to/store/the/firebounty.json'", err)
 		}
@@ -415,27 +443,31 @@ func main() {
 		//for every company...
 		for i, fcompany := range companyNames {
 			fcompany := strings.ToLower(fcompany)
-			if strings.Contains(fcompany, company) {
+			fcompany = strings.TrimSpace(fcompany)
+			if fcompany == company {
+				matchingCompanyList = []firebountySearchMatch{{i, fcompany}}
+				break
+			} else if strings.Contains(fcompany, company) {
 				matchingCompanyList = append(matchingCompanyList, firebountySearchMatch{i, fcompany})
 			}
 		}
 		if len(matchingCompanyList) == 0 && !chainMode {
-			fmt.Println(string(colorRed) + "[-] 0 (lowercase'd) company names contained the string \"" + company + "\"" + string(colorReset))
-			fmt.Println(string(colorRed) + "[-] If the company's bug bounty program is private, consider using rescope to download the scopes: https://github.com/root4loot/rescope")
-			fmt.Println(string(colorRed) + "[-] If the company's bug bounty program is public, consider either of these options:")
-			fmt.Println(string(colorRed) + "\t - Doing a manual search at https://firebounty.com")
-			fmt.Println(string(colorRed) + "\t - Loading the scopes manually into '.inscope' and '.noscope' files.")
-			fmt.Println(string(colorRed) + "\t - Loading the scopes manually into custom files, specified with the --inscope-file and --outofscope-file arguments.")
+			fmt.Println(colorRed + "[-] 0 (lowercase'd) company names contained the string \"" + company + "\"" + colorReset)
+			fmt.Println(colorRed + "[-] If the company's bug bounty program is private, consider using rescope to download the scopes: https://github.com/root4loot/rescope")
+			fmt.Println(colorRed + "[-] If the company's bug bounty program is public, consider either of these options:")
+			fmt.Println(colorRed + "\t - Doing a manual search at https://firebounty.com")
+			fmt.Println(colorRed + "\t - Loading the scopes manually into '.inscope' and '.noscope' files.")
+			fmt.Println(colorRed + "\t - Loading the scopes manually into custom files, specified with the --inscope-file and --outofscope-file arguments.")
 			// Exit code 2 = command line syntax error
 			os.Exit(2)
 		} else if len(matchingCompanyList) > 1 {
 
 			if chainMode {
-				err = nil
-				crash("Unable to match the company to a single company. Please use a more exact company string.", err)
+				warning("Unable to match the company to a single company. Please use a more exact company string.")
+				os.Exit(2)
 			}
 
-			//appearently "while" doesn't exist in Go. It has been replaced by "for"
+			//apparently "while" doesn't exist in Go. It has been replaced by "for"
 			for userPickedInvalidChoice {
 				//For every matchingCompanyList item...
 				for i := range matchingCompanyList {
@@ -450,7 +482,7 @@ func main() {
 				fmt.Print("\n[+] Multiple companies matched \"" + company + "\". Please choose one: ")
 				_, err = fmt.Scanln(&userChoice)
 				if err != nil {
-					crash("An error ocurred while reading user input.", err)
+					crash("An error occurred while reading user input.", err)
 				}
 
 				//Convert userchoice str -> int
@@ -473,7 +505,7 @@ func main() {
 
 					//Load the matchingCompanyList 2D slice, and convert the first member from string to integer, and save the company index
 					companyIndex := matchingCompanyList[i].companyIndex
-					tempinscopeLines, tempnoscopeLines, err := getCompanyScopes(firebountyJSONPath, &companyIndex, privateTLDsAreEnabled)
+					tempinscopeLines, tempnoscopeLines, err := getCompanyScopes(firebountyJSONPath, &companyIndex)
 					if err != nil {
 						crash("Error parsing the company "+company, err)
 					}
@@ -486,7 +518,7 @@ func main() {
 				// The user chose a specific company
 				// Use userChoiceAsInt as an index for the matchingCompanyList 2D slice, and save the company index
 				companyCounter := matchingCompanyList[userChoiceAsInt].companyIndex
-				inscopeLines, noscopeLines, err = getCompanyScopes(firebountyJSONPath, &companyCounter, privateTLDsAreEnabled)
+				inscopeLines, noscopeLines, err = getCompanyScopes(firebountyJSONPath, &companyCounter)
 				if err != nil {
 					crash("Error parsing the company "+company, err)
 				}
@@ -495,9 +527,9 @@ func main() {
 		} else {
 			//Only 1 company matched the query
 			if !chainMode {
-				fmt.Print("[+] Search for \"" + company + "\" matched the company " + string(colorGreen) + matchingCompanyList[0].companyName + string(colorReset) + "!\n")
+				fmt.Println("[+] Search for \"" + company + "\" matched the company " + colorGreen + matchingCompanyList[0].companyName + colorReset + "!")
 			}
-			inscopeLines, noscopeLines, err = getCompanyScopes(firebountyJSONPath, &matchingCompanyList[0].companyIndex, privateTLDsAreEnabled)
+			inscopeLines, noscopeLines, err = getCompanyScopes(firebountyJSONPath, &matchingCompanyList[0].companyIndex)
 			if err != nil {
 				crash("Error parsing the company "+company, err)
 			}
@@ -539,13 +571,13 @@ func main() {
 	StartBenchmark("2")
 
 	// Parse all inscopeLines lines
-	inscopeScopes, err := parseAllLines(inscopeLines, true)
+	inscopeScopes, err := parseAllLines(inscopeLines, true, privateTLDsAreEnabled)
 	if err != nil {
 		crash("Unable to parse any inscope entries as scopes", err)
 	}
 
 	// Parse all noscopeLines lines
-	noscopeScopes, err := parseAllLines(noscopeLines, true)
+	noscopeScopes, err := parseAllLines(noscopeLines, true, privateTLDsAreEnabled)
 	if err != nil {
 		warning("Unable to parse any noscope entries as scopes")
 	}
@@ -574,7 +606,7 @@ func main() {
 		go func() {
 			defer wg.Done()
 			for line := range streamedLinesChan {
-				parsedTarget, err := parseLine(line, false)
+				parsedTarget, err := parseLine(line, false, privateTLDsAreEnabled)
 				res := targetResult{
 					parsedTarget: parsedTarget,
 					err:          err,
@@ -597,6 +629,19 @@ func main() {
 
 	// Consume results as they arrive
 	var target string
+
+	if outputCSVFormat {
+		if !quietMode {
+			fmt.Println("type,asset")
+		}
+		if inscopeOutputFile != "" {
+			_, err = writer.WriteString("type,asset\n")
+			if err != nil {
+				crash("Unable to write to output file", err)
+			}
+		}
+	}
+
 	for res := range outputChan {
 		if res.err != nil {
 			warning("Unable to parse the string '" + res.targetStr + "' as a target.")
@@ -616,25 +661,55 @@ func main() {
 				target = res.targetStr
 			}
 			if !quietMode {
-				if res.isUnsure && includeUnsure {
-					if !chainMode {
-						infoWarning("UNSURE: ", target)
+				if outputCSVFormat {
+					if res.isUnsure {
+						if includeUnsure {
+							fmt.Println("unsure," + target)
+						}
 					} else {
-						fmt.Println(target)
+						fmt.Println("inscope," + target)
 					}
 				} else {
-					if !chainMode {
-						infoGood("IN-SCOPE: ", target)
+					if res.isUnsure {
+						if includeUnsure {
+							if !chainMode {
+								infoWarning("UNSURE: ", target)
+							} else {
+								fmt.Println(target)
+							}
+						}
 					} else {
-						fmt.Println(target)
+						if !chainMode {
+							infoGood("IN-SCOPE: ", target)
+						} else {
+							fmt.Println(target)
+						}
 					}
 				}
 			}
 			if inscopeOutputFile != "" {
-				_, err = writer.WriteString(target + "\n")
-				if err != nil {
-					crash("Unable to write to output file", err)
+
+				if outputCSVFormat {
+					if res.isUnsure {
+						if includeUnsure {
+							_, err = writer.WriteString("unsure," + target + "\n")
+							if err != nil {
+								crash("Unable to write to output file", err)
+							}
+						}
+					} else {
+						_, err = writer.WriteString("inscope," + target + "\n")
+						if err != nil {
+							crash("Unable to write to output file", err)
+						}
+					}
+				} else {
+					_, err = writer.WriteString(target + "\n")
+					if err != nil {
+						crash("Unable to write to output file", err)
+					}
 				}
+
 			}
 		}
 	}
@@ -651,34 +726,46 @@ func main() {
 
 }
 
-func updateFireBountyJSON() {
-	// path/to/whatever does *not* exist
+func updateFireBountyJSON(databaseIsUpdating *bool, tmpFile *os.File, dbFileExists bool) {
+	*databaseIsUpdating = true
 	//get the big JSON from the API
-	jason, err := http.Get(firebountyAPIURL)
+	req, err := http.NewRequest("GET", firebountyAPIURL, nil)
 	if err != nil {
 		crash("Could not download scopes from firebounty at: "+firebountyAPIURL, err)
 	}
+	jason, _ := http.DefaultClient.Do(req)
 
-	//read the contents of the request
-	body, err := io.ReadAll(jason.Body)
+	//f, _ := os.OpenFile(firebountyJSONPath, os.O_CREATE|os.O_WRONLY, 0600)
+	tmpFile, err = os.CreateTemp("", "hacker-scoper_tmp-db")
+	if err != nil {
+		crash("Error creating temporary file.", err)
+	}
+
+	bar := progressbar.DefaultBytes(
+		jason.ContentLength,
+		"downloading",
+	)
+	_, err = io.Copy(io.MultiWriter(tmpFile, bar), jason.Body)
+	if err != nil {
+		warning("Error writing to the temporary file at \"" + tmpFile.Name() + "\". Database update cancelled.")
+		return
+	}
 	jason.Body.Close() // #nosec G104 -- There is no situation in which closing the body of the request will cause an error.
-	if err != nil {
-		fmt.Println(err)
+	tmpFile.Close()    // #nosec G104 -- There is no situation in which closing the temp file will cause an error.
+	if jason.StatusCode == 200 {
+		err = os.Rename(tmpFile.Name(), firebountyJSONPath)
+		if err != nil {
+			crash("Error renaming temp file to db path", err)
+		}
+	} else {
+		if !chainMode {
+			warning("There was an error downloading the latest update of the firebounty db from URL \"" + firebountyAPIURL + "\". Got status code \"" + strconv.Itoa(jason.StatusCode) + "\" Server may be down temporarily. Try again later.")
+		}
+		err = os.Remove(tmpFile.Name())
+		if err != nil {
+			warning("Error deleting temp file at \"" + tmpFile.Name() + "\". Please ensure the file is deleted.")
+		}
 	}
-
-	//delete the previous file (if it even exists)
-	os.Remove(firebountyJSONPath) // #nosec G104 -- There is no need to handle any errors in deleting the file, as it will be created again in the next step.
-
-	//write to disk
-	err = os.WriteFile(firebountyJSONPath, []byte(string(body)), 0600)
-	if err != nil {
-		crash("Couldn't save firebounty json to disk as"+firebountyJSONPath, err)
-	}
-
-	if !chainMode {
-		fmt.Println("[INFO]: Scopes file saved to " + firebountyJSONPath)
-	}
-
 }
 
 func parseScopes(inscopeScopes *[]interface{}, noscopeScopes *[]interface{}, target *interface{}, inscopeExplicitLevel *int, noscopeExplicitLevel *int, includeUnsure bool) (isInsideScope bool, isUnsure bool) {
@@ -701,21 +788,22 @@ func parseScopes(inscopeScopes *[]interface{}, noscopeScopes *[]interface{}, tar
 }
 
 func crash(message string, err error) {
-	fmt.Fprintf(os.Stderr, string(colorRed)+"[ERROR]: "+message+string(colorReset)+"\n\n")
-	fmt.Fprintf(os.Stderr, string(colorRed)+"Error stacktrace: "+string(colorReset)+"\n")
+	fmt.Fprintln(os.Stderr, colorRed+"[ERROR]: "+message+colorReset)
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, colorRed+"Error stacktrace: "+colorReset)
 	panic(err)
 }
 
 func warning(message string) {
-	fmt.Fprintf(os.Stderr, string(colorYellow)+"[WARNING]: "+message+string(colorReset)+"\n")
+	fmt.Fprintln(os.Stderr, colorYellow+"[WARNING]: "+message+colorReset)
 }
 
 func infoGood(prefix string, message string) {
-	fmt.Print(string(colorGreen) + "[+] " + prefix + string(colorReset) + message + "\n")
+	fmt.Println(colorGreen + "[+] " + prefix + colorReset + message)
 }
 
 func infoWarning(prefix string, message string) {
-	fmt.Print(string(colorYellow) + "[-] " + prefix + string(colorReset) + message + "\n")
+	fmt.Println(colorYellow + "[-] " + prefix + colorReset + message)
 }
 
 func removePortFromHost(myurl *url.URL) string {
@@ -737,7 +825,7 @@ func isOutOfScope(noscopeScopes *[]interface{}, target *interface{}, explicitLev
 }
 
 //======================================================================================
-// The following code is from tomnomnom's inscope project:
+// The following code is from Tomnomnom's inscope project:
 // https://github.com/tomnomnom/hacks/tree/master/inscope
 
 func searchForFileBackwards(filename string) (string, error) {
@@ -769,7 +857,7 @@ func searchForFileBackwards(filename string) (string, error) {
 // companyIndex is the numeric index of the company in the firebounty database, where 0 is the first company, 1 is the second company, etc
 // Returns an error if no inscopeLines could be detected.
 // Does not return an error if no noscopeLines could be detected.
-func getCompanyScopes(firebountyJSONPath string, companyIndex *int, privateTLDsAreEnabled bool) (inscopeLines []string, noscopeLines []string, err error) {
+func getCompanyScopes(firebountyJSONPath string, companyIndex *int) (inscopeLines []string, noscopeLines []string, err error) {
 
 	prog, err := loadProgramByIndex(firebountyJSONPath, *companyIndex)
 	if err != nil {
@@ -818,11 +906,7 @@ func getCompanyScopes(firebountyJSONPath string, companyIndex *int, privateTLDsA
 		if prog.Scopes.In_scopes[inscopeCounter].Scope_type == "web_application" && prog.Scopes.In_scopes[inscopeCounter].Scope != "" {
 
 			rawInScope := prog.Scopes.In_scopes[inscopeCounter].Scope
-
-			// TODO: Optimize this. It's very inneficient to be parsing this line twice. parseLine is already called within isAndroidPackageName, so we shouldn't call it again, that's redundant.
-			if !isAndroidPackageName(&rawInScope, privateTLDsAreEnabled) {
-				inscopeLines = append(inscopeLines, rawInScope)
-			}
+			inscopeLines = append(inscopeLines, rawInScope)
 
 		}
 	}
@@ -837,57 +921,12 @@ func getCompanyScopes(firebountyJSONPath string, companyIndex *int, privateTLDsA
 		if prog.Scopes.Out_of_scopes[noscopeCounter].Scope_type == "web_application" && prog.Scopes.Out_of_scopes[noscopeCounter].Scope != "" {
 
 			rawNoScope := prog.Scopes.Out_of_scopes[noscopeCounter].Scope
-
-			if !isAndroidPackageName(&rawNoScope, privateTLDsAreEnabled) {
-				noscopeLines = append(noscopeLines, rawNoScope)
-			}
+			noscopeLines = append(noscopeLines, rawNoScope)
 
 		}
 	}
 
 	return inscopeLines, noscopeLines, nil
-}
-
-// This function receives a raw scope string, and returns true if it's an android package name.
-// It's goal is to help detect any misconfigured bug-bounty programs
-// Only scopes that have the type "web_application" but that we aren't sure if they are actually web_application resources should be sent into this function.
-// Sometimes bug bounty programs set APK package names such as com.my.businness.gatewayportal as web_application resources instead of as android_application resources in their program scope, causing trouble for anyone using automatic tools. Hacker-Scoper automatically detects these errors and notifies the user.
-func isAndroidPackageName(rawScope *string, privateTLDsAreEnabled bool) bool {
-
-	if privateTLDsAreEnabled {
-		return privateTLDsAreEnabled
-	}
-
-	// We begin the detection by trying to parse the given scope as an actual scope.
-	// The problem with url.Parse is that it rarely returns an error. It often times assumes that invalid domain names (such as "this.is.not.avaliddomain") actually have a "private Top-Level-Domain". This is extremely unlikely in reality
-	// TODO: Split parseLine into 3 functions, so we can directly try to parse the rawScope as a URL rather than wasting CPU cycles trying to parse CIDR Range -> IP Address -> URL.
-	inscope, err := parseLine(*rawScope, true)
-
-	if err != nil {
-		return false
-	} else if _, inscopeIsURL := inscope.(*url.URL); inscopeIsURL {
-		// If the type of inscope is *url.URL ...
-		portlessHostofCurrentTarget := removePortFromHost(inscope.(*url.URL))
-
-		//alert the user about potentially mis-configured bug-bounty program
-		_, scopeHasValidTLD := publicsuffix.PublicSuffix(portlessHostofCurrentTarget)
-
-		if !chainMode {
-			//alert the user about potentially mis-configured bug-bounty program
-			if (*rawScope)[0:4] == "com." || (*rawScope)[0:4] == "org." {
-				warning("The scope \"" + *rawScope + "\" starts with \"com.\" or \"org.\" This may be a sign of a misconfigured bug bounty program. Consider editing the \"" + firebountyJSONPath + " file and removing the faulty entries. Also, report the failure to the maintainers of the bug bounty program.")
-			}
-		}
-
-		if !scopeHasValidTLD && inscope.(*url.URL).Host != "" {
-			if !chainMode {
-				warning("The scope \"" + *rawScope + "\" does not have a public Top Level Domain (TLD). This may be a sign of a misconfigured bug bounty program. Consider editing the \"" + firebountyJSONPath + " file and removing the faulty entries. Also, report the failure to the mainters of the bug bounty program.")
-			}
-			return true
-		}
-	}
-
-	return false
 }
 
 // This function receives a filepath as a string, and returns a string with the contents of the file
@@ -915,7 +954,7 @@ func readFileLines(filepath string) ([]string, error) {
 // The channel is closed when EOF is reached. An error is returned if the
 // file could not be opened.
 func streamFileLines(filepath string) (<-chan string, error) {
-	f, err := os.Open(filepath) // #nosec G304 -- intended behaviour
+	f, err := os.Open(filepath) // #nosec G304 -- intended behavior
 	if err != nil {
 		return nil, err
 	}
@@ -953,9 +992,7 @@ func streamFileLines(filepath string) (<-chan string, error) {
 // - *URLWithIPAddressHost	(URL that has an IP host)
 //
 // This function returns the error ErrInvalidFormat if the string didn't match any of the listed formats.
-func parseLine(line string, isScope bool) (interface{}, error) {
-
-	// TODO: Add a --optimize flag that when enabled will save all of the inscope, and noscope scopes in a separate file, with their type already determined, so we don't have to waste time guessing the scope type every time hacker-scoper is run. Maybe in CSV format. We could also use the file last-modified-at metadata to know whether the .inscope and .noscope files were modified. The --optimize flag should only have an effect when hacker-scoper is ran with .inscope and .noscope files, or with the firebounty db.It wouldn't make sense to optimize the input of stdin.
+func parseLine(line string, isScope bool, privateTLDsAreEnabled bool) (interface{}, error) {
 
 	if isScope {
 		if strings.HasPrefix(line, "^") && strings.HasSuffix(line, "$") {
@@ -1035,7 +1072,32 @@ func parseLine(line string, isScope bool) (interface{}, error) {
 		}
 	} else {
 		if parsedURL.Path == "" || parsedURL.Path == "/" {
-			return removePortFromHost(parsedURL), nil
+
+			// This should help detect any misconfigured bug-bounty programs
+			// Sometimes bug bounty programs set APK package names such as com.my.business.gatewayportal as web_application resources instead of as android_application resources in their program scope, causing trouble for anyone using automatic tools. Hacker-Scoper automatically detects these errors and notifies the user.
+			// The problem with url.Parse is that it rarely returns an error. It often times assumes that invalid domain names (such as "this.is.not.avaliddomain") actually have a "private Top-Level-Domain". This is extremely unlikely in reality
+			portless := removePortFromHost(parsedURL)
+			if !privateTLDsAreEnabled {
+
+				eTLD, icann := publicsuffix.PublicSuffix(portless)
+
+				if !(icann || strings.IndexByte(eTLD, '.') >= 0) {
+					if !chainMode {
+						warning("The scope \"" + line + "\" does not have a public Top Level Domain (TLD). This may be a sign of a misconfigured bug bounty program. Consider editing the \"" + firebountyJSONPath + " file and removing the faulty entries. Also, report the failure to the maintainers of the bug bounty program.")
+					}
+					return nil, ErrInvalidFormat
+				}
+
+				if !chainMode {
+					//alert the user about potentially mis-configured bug-bounty program
+					if line[0:4] == "com." || line[0:4] == "org." {
+						warning("The scope \"" + line + "\" starts with \"com.\" or \"org.\" This may be a sign of a misconfigured bug bounty program. Consider editing the \"" + firebountyJSONPath + " file and removing the faulty entries. Also, report the failure to the maintainers of the bug bounty program.")
+					}
+				}
+			}
+
+			return portless, nil
+
 		} else {
 			if !chainMode {
 				warning("The text \"" + line + "\" was given as a scope, but it contains the path \"" + parsedURL.Path + "\". In order to properly match paths in your scope you have to use regex. This scope has been ignored.")
@@ -1051,7 +1113,7 @@ func parseLine(line string, isScope bool) (interface{}, error) {
 // - A slice of parsed objects (interface{} holding *net.IPNet, net.IP, or *url.URL)
 // - An error if no lines could be parsed as a scope, otherwise nil.
 // isScopes should be true if the lines to be parsed are scopes.
-func parseAllLines(lines []string, isScopes bool) ([]interface{}, error) {
+func parseAllLines(lines []string, isScopes bool, privateTLDsAreEnabled bool) ([]interface{}, error) {
 	parsed := []interface{}{}
 
 	numWorkers := runtime.NumCPU()
@@ -1066,7 +1128,7 @@ func parseAllLines(lines []string, isScopes bool) ([]interface{}, error) {
 		go func() {
 			defer wg.Done()
 			for line := range inputChan {
-				result, err := parseLine(line, isScopes)
+				result, err := parseLine(line, isScopes, privateTLDsAreEnabled)
 				if err != nil {
 					outputChan <- parseResult{value: result, line: line, err: err}
 				} else {
