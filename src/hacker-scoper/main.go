@@ -697,9 +697,16 @@ func updateFireBountyJSON(databaseIsUpdating *bool, tmpFile *os.File, dbFileExis
 	io.Copy(io.MultiWriter(tmpFile, bar), jason.Body)
 	jason.Body.Close() // #nosec G104 -- There is no situation in which closing the body of the request will cause an error.
 	tmpFile.Close()
-	err = os.Rename(tmpFile.Name(), firebountyJSONPath)
-	if err != nil {
-		crash("Error renaming temp file to db path", err)
+	if jason.StatusCode == 200 {
+		err = os.Rename(tmpFile.Name(), firebountyJSONPath)
+		if err != nil {
+			crash("Error renaming temp file to db path", err)
+		}
+	} else {
+		if !chainMode {
+			warning("There was an error downloading the latest update of the firebounty db from URL \"" + firebountyAPIURL + "\". Got status code \"" + strconv.Itoa(jason.StatusCode) + "\" Server may be down temporarily. Try again later.")
+		}
+		os.Remove(tmpFile.Name())
 	}
 }
 
