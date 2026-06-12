@@ -268,7 +268,7 @@ func main() {
 			if databaseIsUpdating {
 				fmt.Println()
 				path := tmpFile.Name()
-				tmpFile.Close() // #nosec G304 -- There is no harm in potentially double-closing a temp file.
+				tmpFile.Close() // #nosec G104 -- There is no harm in potentially double-closing a temp file.
 				err := os.Remove(path)
 				if err != nil {
 					warning("Error deleting temp file at \"" + path + "\". Please ensure the file is deleted.")
