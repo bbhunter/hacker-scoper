@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -117,6 +118,9 @@ func main() {
 	var scopesListFilepath string
 	var outofScopesListFilepath string
 	var privateTLDsAreEnabled bool
+
+	databaseIsUpdating := false
+	var tmpFile *os.File
 
 	const usage = `Hacker-scoper is a GoLang tool designed to assist cybersecurity professionals in bug bounty programs. It identifies and excludes URLs and IP addresses that fall outside a program's scope by comparing input targets (URLs/IPs) against a locally cached [FireBounty](https://firebounty.com) database of scraped scope data. Users may also supply a custom scope list for validation.
 
@@ -251,6 +255,21 @@ func main() {
 	if quietMode && !chainMode {
 		chainMode = quietMode
 	}
+
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	go func() {
+		for range c {
+			if databaseIsUpdating {
+				fmt.Println()
+				path := tmpFile.Name()
+				tmpFile.Close()
+				os.Remove(path)
+				infoGood("INFO: ", "Database update has been cancelled. Previous state restored.")
+			}
+			os.Exit(0)
+		}
+	}()
 
 	if firebountyJSONPath == "" {
 		firebountyJSONPath = getFirebountyJSONPath()
@@ -389,7 +408,7 @@ func main() {
 				if !chainMode {
 					fmt.Println("[INFO]: +24hs have passed since the last update to the local firebounty database. Updating...")
 				}
-				updateFireBountyJSON()
+				updateFireBountyJSON(&databaseIsUpdating, tmpFile, true)
 			}
 		} else if errors.Is(err, os.ErrNotExist) {
 			// The database does not exist.
@@ -397,7 +416,7 @@ func main() {
 			if !chainMode {
 				fmt.Println("[INFO]: Downloading scopes file and saving in \"" + firebountyJSONPath + "\"")
 			}
-			updateFireBountyJSON()
+			updateFireBountyJSON(&databaseIsUpdating, tmpFile, false)
 		} else {
 			crash("Unable to get information about the database file at \""+firebountyJSONPath+"\". Probably a permissions error with the directory the database is saved at. Try using the database argument like '--database /custom/path/to/store/the/firebounty.json'", err)
 		}
@@ -656,7 +675,8 @@ func main() {
 
 }
 
-func updateFireBountyJSON() {
+func updateFireBountyJSON(databaseIsUpdating *bool, tmpFile *os.File, dbFileExists bool) {
+	*databaseIsUpdating = true
 	//get the big JSON from the API
 	req, err := http.NewRequest("GET", firebountyAPIURL, nil)
 	if err != nil {
@@ -664,16 +684,23 @@ func updateFireBountyJSON() {
 	}
 	jason, _ := http.DefaultClient.Do(req)
 
-	f, _ := os.OpenFile(firebountyJSONPath, os.O_CREATE|os.O_WRONLY, 0600)
-	defer f.Close()
+	//f, _ := os.OpenFile(firebountyJSONPath, os.O_CREATE|os.O_WRONLY, 0600)
+	tmpFile, err = os.CreateTemp("", "hacker-scoper_tmp-db")
+	if err != nil {
+		crash("Error creating temporary file.", err)
+	}
 
 	bar := progressbar.DefaultBytes(
 		jason.ContentLength,
 		"downloading",
 	)
-	io.Copy(io.MultiWriter(f, bar), jason.Body)
-
+	io.Copy(io.MultiWriter(tmpFile, bar), jason.Body)
 	jason.Body.Close() // #nosec G104 -- There is no situation in which closing the body of the request will cause an error.
+	tmpFile.Close()
+	err = os.Rename(tmpFile.Name(), firebountyJSONPath)
+	if err != nil {
+		crash("Error renaming temp file to db path", err)
+	}
 }
 
 func parseScopes(inscopeScopes *[]interface{}, noscopeScopes *[]interface{}, target *interface{}, inscopeExplicitLevel *int, noscopeExplicitLevel *int, includeUnsure bool) (isInsideScope bool, isUnsure bool) {
@@ -987,20 +1014,20 @@ func parseLine(line string, isScope bool, privateTLDsAreEnabled bool) (interface
 			portless := removePortFromHost(parsedURL)
 			if !privateTLDsAreEnabled {
 
-				_, scopeHasValidTLD := publicsuffix.PublicSuffix(portless)
+				eTLD, icann := publicsuffix.PublicSuffix(portless)
+
+				if !(icann || strings.IndexByte(eTLD, '.') >= 0) {
+					if !chainMode {
+						warning("The scope \"" + line + "\" does not have a public Top Level Domain (TLD). This may be a sign of a misconfigured bug bounty program. Consider editing the \"" + firebountyJSONPath + " file and removing the faulty entries. Also, report the failure to the maintainers of the bug bounty program.")
+					}
+					return nil, ErrInvalidFormat
+				}
 
 				if !chainMode {
 					//alert the user about potentially mis-configured bug-bounty program
 					if line[0:4] == "com." || line[0:4] == "org." {
 						warning("The scope \"" + line + "\" starts with \"com.\" or \"org.\" This may be a sign of a misconfigured bug bounty program. Consider editing the \"" + firebountyJSONPath + " file and removing the faulty entries. Also, report the failure to the maintainers of the bug bounty program.")
 					}
-				}
-
-				if !scopeHasValidTLD && parsedURL.Host != "" {
-					if !chainMode {
-						warning("The scope \"" + line + "\" does not have a public Top Level Domain (TLD). This may be a sign of a misconfigured bug bounty program. Consider editing the \"" + firebountyJSONPath + " file and removing the faulty entries. Also, report the failure to the maintainers of the bug bounty program.")
-					}
-					return nil, ErrInvalidFormat
 				}
 			}
 
