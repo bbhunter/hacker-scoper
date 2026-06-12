@@ -147,17 +147,17 @@ func main() {
   -c, --company string
       Specify the company name to lookup.
 
-  -f, --file string
+  -f, --file /path/to/targets
       Path to your file containing URLs
 
-  -ins, --inscope, --in-scope, --in-scope-file, --inscope-file string
+  -ins, --inscope, --in-scope, --in-scope-file, --inscope-file /path/to/inscopes
       Path to a custom plaintext file containing scopes
 
-  -oos, --outofscope, --out-of-scope, --out-of-scope-file, --outofscope-file string
+  -oos, --outofscope, --out-of-scope, --out-of-scope-file, --outofscope-file /path/to/outofscopes
       Path to a custom plaintext file containing scopes exclusions
 
-  -ie, --inscope-explicit-level int
-  -oe, --noscope-explicit-level int
+  -ie, --inscope-explicit-level INT
+  -oe, --noscope-explicit-level INT
       How explicit we expect the scopes to be:
         (default) 1: Include subdomains in the scope even if there's not a wildcard in the scope.
                   2: Include subdomains in the scope only if there's a wildcard in the scope.
@@ -170,7 +170,7 @@ func main() {
       In "chain-mode" we only output the important information. No decorations.
 	    Default: false
 
-  --database string
+  --database /path/to/database
       Custom path to the cached firebounty database.
 	  	Default:
 		- Windows: %APPDATA%\hacker-scoper\
@@ -179,7 +179,7 @@ func main() {
   -iu, --include-unsure
       Include "unsure" assets in the output. An unsure asset is an asset that's not in scope, but is also not out of scope. Very probably unrelated to the bug bounty program.
 
-  -o, --output string
+  -o, --output /path/to/outputfile
       Save the inscope assets to a file
 
   --csv
